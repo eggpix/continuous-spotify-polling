@@ -20,7 +20,7 @@ Information on the currently playing track. Used to fill the track_id field in t
 
 ## Program loop
 
-The following pseudocode describes the actions performed during each API request.
+The following pseudocode roughly describes the actions performed during each API request.
 
 ```python
 # Persistent variables between loops

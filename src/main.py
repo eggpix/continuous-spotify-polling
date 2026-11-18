@@ -1,20 +1,7 @@
-
-import os
 import time
 from datetime import datetime, timezone
 
-import spotipy
-from dotenv import load_dotenv
-from spotipy.oauth2 import SpotifyOAuth
-
-load_dotenv()
-
-sp = spotipy.Spotify(auth_manager=SpotifyOAuth(
-    client_id=os.getenv("SPOTIPY_CLIENT_ID"),
-    client_secret=os.getenv("SPOTIPY_CLIENT_SECRET"),
-    redirect_uri=os.getenv("SPOTIPY_REDIRECT_URI"),
-    scope="user-read-currently-playing",
-))
+import spotify
 
 # Configuration
 polling_intervals = {
@@ -56,11 +43,11 @@ def finish_event(elapsed_ms):
     current_event = None
 
 
-def retrieve_playback_data():
+def retrieve_playback_data(sp):
     global current_event, last_polled_at
     global last_playing_at, last_poll_was_playing
 
-    playback = sp.currently_playing()
+    playback = spotify.get_currently_playing(sp)
 
     observed_at = time.monotonic()
     elapsed_ms = (observed_at - last_polled_at) * 1000
@@ -124,24 +111,29 @@ def retrieve_playback_data():
     last_poll_was_playing = is_playing
     last_polled_at = observed_at
 
+def main():
 
-# Main program loop
-try:
-    while True:
-        retrieve_playback_data()
+    sp = spotify.connect()
 
-        inactive_ms = (time.monotonic() - last_playing_at) * 1000
+    try:
+        while True:
+            retrieve_playback_data(sp)
 
-        for threshold, interval in reversed(list(polling_intervals.items())):
-            if inactive_ms >= threshold:
-                poll_interval = interval
-                break
+            inactive_ms = (time.monotonic() - last_playing_at) * 1000
 
-        print(f"\tCurrently polling once every {poll_interval} seconds")
-        time.sleep(poll_interval)
+            for threshold, interval in reversed(list(polling_intervals.items())):
+                if inactive_ms >= threshold:
+                    poll_interval = interval
+                    break
 
-except KeyboardInterrupt:
-    finish_event(0)
-    print("\nPlayback events:")
-    for event in playback_events:
-        print(event)
+            print(f"\tCurrently polling once every {poll_interval} seconds")
+            time.sleep(poll_interval)
+
+    except KeyboardInterrupt:
+        finish_event(0)
+        print("\nPlayback events:")
+        for event in playback_events:
+            print(event)
+
+if __name__ == "__main__":
+    main()
