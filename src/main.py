@@ -114,7 +114,14 @@ def retrieve_playback_data(sp):
 
 def main():
 
-    sp = spotify.connect()
+    try:
+        print("Connecting to Spotify... ")
+        sp = spotify.connect()
+        print("Connecting to Database... ")
+        db = database.connect()
+    except Exception as e:
+        print(f"Error: {e}")
+        return
 
     try:
         while True:
