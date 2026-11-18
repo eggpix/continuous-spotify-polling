@@ -2,6 +2,7 @@ import time
 from datetime import datetime, timezone
 
 import spotify
+import database
 
 # Configuration
 polling_intervals = {
