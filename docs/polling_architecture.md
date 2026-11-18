@@ -1,6 +1,6 @@
 # Polling Architecture
 
-This file describes the method and frequency of requesting and logging data from the Spotify API. The most relevant endpoint exposed by the Spotify API is `GET /me/player`. The responses used to calculate user activity are as follows:
+This file describes the method and frequency of requesting and logging data from the Spotify API. The most relevant endpoint exposed by the Spotify API is `GET /me/player/currently-playing`. The responses used to calculate user activity are as follows:
 
 ### is_playing `boolean`
 
