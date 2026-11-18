@@ -10,12 +10,12 @@ requests data from Spotify's API to extract more precise
 information on listening habits.
 
 While Spotify does not send total playback duration
-for a listening event when retrieving recent plays,
-it does send current information on playback, such as
-the current playback time in milliseconds. Combining
-this information with data from the recently played tracks
-endpoint, it's possible to extract detailed listening
-behavior analytics with relatively infrequent polling.
+for a recently played songs, it does send current
+information on playback, such as the current playback time
+in milliseconds. Combining this information with data from
+the recently played tracks endpoint, it's possible to
+extract detailed listening behavior analytics with relatively
+infrequent polling.
 
 To prevent rate limitting from the Spotify Web API,
 polling intervals dynamically adjust to user activity.
