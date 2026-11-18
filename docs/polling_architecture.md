@@ -31,32 +31,44 @@ time_last_played: TIMESTAMP = CURRENT TIME # Stores the last time is_playing was
 # Current track info
 current_track_id: ID = None
 current_track_started_at: TIMESTAMP = None
-current_track_playback_start: INTEGER = None
-current_track_playback_end: INTEGER = None
-
+current_track_playback_start: INTEGER = 0
+current_track_progress = 0 # Store last retrieved track progress for playback_end calculation
 
 polling_intervals = { # Polling intervals depending on time since time_last_played
 
-    0: 10,    # If user was recently active, poll every 10 seconds
-    300, 30,  # If user has been inactive for 5+ minutes, poll every 30 seconds
-    900, 90   # If user has been inactive for 15+ minutes, poll every 90 seconds
+    0: 10000,    # If user was recently active, poll every 10 seconds
+    300000, 30000,  # If user has been inactive for 5+ minutes, poll every 30 seconds
+    900000, 90000   # If user has been inactive for 15+ minutes, poll every 90 seconds
 
 }
 
 poll_interval = polling_intervals[0] # Current polling interval
                                      # Updated each loop
 
-last_track: ID
+time_margin = 2000 # Account for data retrieval time inconsistencies, rounding errors, etc.
 
 
-retrieve_playback_data():
+retrieve_playback_data( current_time ):
 
     new_track_id = get_spot_player( "item" ).get( "track_id" )
 
     IF  new_track_id != current_track_id:
 
         # Update the database with the previous track information
+        IF current_track_progress > CURRENT TRACK LENGTH - poll_interval - time_margin:
+            current_track_ended_at = CURRENT TRACK LENGTH
+        ELSE:
+            current_track_ended_at = MIN( current_track_progress + poll_interval / 2, CURRENT TRACK LENGTH )
         add_to_database( INFO )
+        
+        
+        IF get_spot_player( "progress_ms" ) < poll_interval + time_margin:
+            # If the current song progress is close enought to the start, snap it to 0.
+            current_track_started_at = 0
+        ELSE
+            # Otherwise, assume it was started halfway between the last request and the current request.
+            # Set minimum value to 0 (progress cannot be negative)
+            current_track_started_at = MAX( get_spot_player( "progress_ms" ) - poll_interval / 2, 0)
 
         current_track_id = new_track_id
 
@@ -70,7 +82,7 @@ WHILE PROGRAM IS RUNNING:
     current_time = CURRENT TIME
     time_since_last = current_time - time_last_played
 
-    retrieve_playback_data()
+    retrieve_playback_data( current_time )
 
     # Get correct poll interval at this time
     FOR key, value IN REVERSED( polling_intervals.ITEMS() ):
