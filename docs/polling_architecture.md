@@ -9,7 +9,8 @@ and a `played_at` timestamp, but not the playback offsets.
 ## Playback events
 
 - One in-memory event is kept for the current track. Polls of that same track
-  update the event rather than insert another row.
+  update the event rather than insert another row. Starting playback only
+  creates in-memory state; the live event is written when it closes.
 - Pauses and brief responses without a track keep the event open. If the track
   stays unavailable for two minutes, the event is closed; a different track
   closes it immediately. A graceful poller exit also closes the open event.

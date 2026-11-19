@@ -14,7 +14,7 @@ time_margin = 2000
 scrub_threshold_ms = 1000
 missing_track_grace_ms = 120_000
 recently_played_overlap_ms = 120_000
-recent_event_match_window_ms = 10_000
+recent_event_match_window_ms = 2000
 
 current_event = None
 
@@ -25,6 +25,7 @@ last_playing_at = last_polled_at
 last_poll_was_playing = False
 recently_played_cursor_ms = last_polled_wallclock_ms
 recently_played_seen = {}
+recently_played_live_events = []
 
 
 def timestamp_to_datetime(timestamp, fallback):
@@ -35,6 +36,17 @@ def timestamp_to_datetime(timestamp, fallback):
 
 def datetime_to_timestamp(value):
     return int(value.timestamp() * 1000)
+
+
+def recent_play_matches_interval(
+    track_id, played_at_ms, event_track_id, start_ms, end_ms
+):
+    return (
+        track_id == event_track_id
+        and start_ms - recent_event_match_window_ms
+        <= played_at_ms
+        <= end_ms + recent_event_match_window_ms
+    )
 
 
 def update_event_from_playback(event, track, progress, timestamp):
@@ -81,7 +93,9 @@ def playback_was_restarted(event, progress, timestamp, observed_at_ms):
     return False
 
 
-def recover_recently_played(sp, db, playback, previous_event=None):
+def recover_recently_played(
+    sp, db, previous_event=None, active_event=None
+):
     global recently_played_cursor_ms, recently_played_seen
 
     response = spotify.get_recently_played(
@@ -101,55 +115,42 @@ def recover_recently_played(sp, db, playback, previous_event=None):
 
     dated_items.sort(key=lambda result: result[0])
 
-    skip_indexes = set()
-    if previous_event is not None:
-        matching = [
-            (index, result)
-            for index, result in enumerate(dated_items)
-            if result[1].get("track", {}).get("id")
-            == previous_event["track_id"]
-        ]
-        if matching:
-            previous_started_at = datetime_to_timestamp(
-                previous_event["started_at"]
-            )
-            index, _ = min(
-                matching,
-                key=lambda match: abs(match[1][0] - previous_started_at)
-            )
-            if abs(dated_items[index][0] - previous_started_at) <= (
-                recent_event_match_window_ms
-            ):
-                skip_indexes.add(index)
+    now_ms = int(time.time() * 1000)
+    event_intervals = set(recently_played_live_events)
+    for event in (previous_event, active_event):
+        if event is not None:
+            start_ms = datetime_to_timestamp(event["started_at"])
+            ended_at = event.get("ended_at")
+            end_ms = datetime_to_timestamp(ended_at) if ended_at else now_ms
+            event_intervals.add((event["track_id"], start_ms, end_ms))
 
-    playback_item = playback.get("item") if playback else None
-    playback_track_id = (
-        playback_item.get("id")
-        if playback_item and playback_item.get("type") == "track"
-        else None
-    )
-    if playback_track_id:
-        matching = [
-            index
-            for index, result in enumerate(dated_items)
-            if result[1].get("track", {}).get("id") == playback_track_id
+    skipped_occurrences = set()
+    for event_track_id, start_ms, end_ms in sorted(
+        event_intervals, key=lambda event: event[1]
+    ):
+        candidates = [
+            (index, item)
+            for index, item in enumerate(dated_items)
+            if (item[1].get("track") or {}).get("id") == event_track_id
+            and (event_track_id, item[0]) not in skipped_occurrences
+            and recent_play_matches_interval(
+                event_track_id,
+                item[0],
+                event_track_id,
+                start_ms,
+                end_ms
+            )
         ]
-        if matching:
-            timestamp = playback.get("timestamp")
-            if timestamp is None:
-                skip_indexes.add(matching[-1])
-            else:
-                closest = min(
-                    matching,
-                    key=lambda index: abs(dated_items[index][0] - timestamp)
-                )
-                if (
-                    abs(dated_items[closest][0] - timestamp)
-                    <= recent_event_match_window_ms
-                ):
-                    skip_indexes.add(closest)
+        if candidates:
+            _, matching_item = min(
+                candidates,
+                key=lambda candidate: abs(candidate[1][0] - start_ms)
+            )
+            skipped_occurrences.add(
+                (event_track_id, matching_item[0])
+            )
 
-    for index, (played_at_ms, item, played_at) in enumerate(dated_items):
+    for played_at_ms, item, played_at in dated_items:
         track = item.get("track") or {}
         track_id = track.get("id")
         key = (track_id, played_at_ms)
@@ -163,7 +164,7 @@ def recover_recently_played(sp, db, playback, previous_event=None):
             recently_played_cursor_ms, played_at_ms
         )
 
-        if index in skip_indexes:
+        if (track_id, played_at_ms) in skipped_occurrences:
             continue
         if track.get("type") != "track" or not track_id:
             continue
@@ -186,15 +187,25 @@ def recover_recently_played(sp, db, playback, previous_event=None):
         for key, timestamp in recently_played_seen.items()
         if timestamp >= cutoff_ms
     }
+    recently_played_live_events[:] = [
+        event
+        for event in recently_played_live_events
+        if event[2] >= cutoff_ms - recent_event_match_window_ms
+    ]
 
 
-def finish_event(elapsed_ms, db):
+def finish_event(elapsed_ms, db, ended_at=None):
     global current_event
 
     if current_event is None:
         return
 
     event = current_event
+    if ended_at is None:
+        ended_at = datetime.now(timezone.utc)
+    if ended_at < event["started_at"]:
+        ended_at = event["started_at"]
+    event["ended_at"] = ended_at
     end = event["playback_end"]
     duration = event["duration_ms"]
 
@@ -210,7 +221,11 @@ def finish_event(elapsed_ms, db):
 
     update_database(db, event)
     started_at_ms = datetime_to_timestamp(event["started_at"])
+    ended_at_ms = datetime_to_timestamp(ended_at)
     recently_played_seen[(event["track_id"], started_at_ms)] = started_at_ms
+    recently_played_live_events.append(
+        (event["track_id"], started_at_ms, ended_at_ms)
+    )
 
     print(f"Recorded: {event['track_name']}")
     current_event = None
@@ -244,7 +259,7 @@ def retrieve_playback_data(sp, db):
     track_id = track.get("id") if track else None
     progress = playback.get("progress_ms") if playback else None
     timestamp = playback.get("timestamp") if playback else None
-    recently_played_checked = False
+    recovery_pending = False
 
     previous_event = current_event
     restarted = (
@@ -267,9 +282,12 @@ def retrieve_playback_data(sp, db):
     )
 
     if track_changed or restarted or missing_expired:
-        finish_event(0 if restarted or missing_expired else elapsed_ms, db)
-        recover_recently_played(sp, db, playback, previous_event)
-        recently_played_checked = True
+        finish_event(
+            0 if restarted or missing_expired else elapsed_ms,
+            db,
+            timestamp_to_datetime(timestamp, current_time)
+        )
+        recovery_pending = True
 
     if is_playing:
         last_playing_at = observed_at
@@ -310,9 +328,6 @@ def retrieve_playback_data(sp, db):
                 "last_timestamp": timestamp,
                 "missing_since": None,
             }
-            if previous_event is None:
-                recover_recently_played(sp, db, playback, current_event)
-                recently_played_checked = True
         else:
             update_event_from_playback(
                 current_event, track, progress, timestamp
@@ -338,10 +353,17 @@ def retrieve_playback_data(sp, db):
         print(f"Paused: {item.get('name', 'Unknown track')}")
     else:
         print("No track playing")
-    if track_id is None and not recently_played_checked:
+    if recovery_pending:
+        recover_recently_played(
+            sp,
+            db,
+            previous_event,
+            current_event if is_playing and track_id else None
+        )
+    elif track_id is None:
         if current_event is not None and current_event["missing_since"] is None:
             current_event["missing_since"] = observed_at
-        recover_recently_played(sp, db, playback, current_event)
+        recover_recently_played(sp, db, current_event)
 
     last_poll_was_playing = is_playing
     last_polled_at = observed_at

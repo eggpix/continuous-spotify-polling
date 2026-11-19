@@ -52,6 +52,7 @@ class PlaybackEventTests(unittest.TestCase):
         main.last_poll_was_playing = False
         main.recently_played_cursor_ms = main.last_polled_wallclock_ms
         main.recently_played_seen = {}
+        main.recently_played_live_events = []
         self.db = FakeDatabase()
         self.current_playback = patch.object(
             main.spotify, "get_currently_playing"
@@ -79,6 +80,22 @@ class PlaybackEventTests(unittest.TestCase):
         self.assertEqual(self.db.events, [])
         self.assertEqual(main.current_event["track_id"], "A")
         self.assertEqual(main.current_event["playback_end"], 21_000)
+
+    def test_starting_live_event_does_not_insert_recent_history(self):
+        track = make_track("A")
+        self.current_playback_mock.return_value = playback("A", 10_000)
+        self.recent_playback_mock.return_value = {
+            "items": [{
+                "track": make_track("B"),
+                "played_at": datetime.now(timezone.utc).isoformat(),
+            }]
+        }
+
+        main.retrieve_playback_data(object(), self.db)
+
+        self.assertEqual(self.db.events, [])
+        self.assertEqual(main.current_event["track_id"], track["id"])
+        self.recent_playback_mock.assert_not_called()
 
     def test_backward_seek_splits_same_track_event(self):
         timestamp = main.last_polled_wallclock_ms - 5_000
@@ -126,26 +143,37 @@ class PlaybackEventTests(unittest.TestCase):
                 "played_at": played_at.isoformat(),
             }
 
-        items = [recent("A", 1_000), recent("B", 20_000), recent("C", 30_000)]
+        items = [
+            recent("A", 1_000),
+            recent("B", 20_000),
+            recent("A", 30_000),
+        ]
         started_at = datetime.fromtimestamp(
             (cursor + 1_000) / 1000, timezone.utc
         )
-        current_playback = playback("C", 5_000, timestamp=cursor + 30_000)
+        ended_at = datetime.fromtimestamp(
+            (cursor + 15_000) / 1000, timezone.utc
+        )
         main.recently_played_cursor_ms = cursor
         main.recently_played_seen = {}
         self.recent_playback_mock.return_value = {"items": items}
-        previous_event = {"track_id": "A", "started_at": started_at}
+        previous_event = {
+            "track_id": "A",
+            "started_at": started_at,
+            "ended_at": ended_at,
+        }
 
         main.recover_recently_played(
-            object(), self.db, current_playback, previous_event
+            object(), self.db, previous_event
         )
         main.recover_recently_played(
-            object(), self.db, current_playback, previous_event
+            object(), self.db, previous_event
         )
 
-        self.assertEqual([track["id"] for track in self.db.tracks], ["B"])
-        self.assertEqual(len(self.db.events), 1)
-        self.assertEqual(self.db.events[0][0], "B")
+        self.assertEqual(
+            [track["id"] for track in self.db.tracks], ["B", "A"]
+        )
+        self.assertEqual([event[0] for event in self.db.events], ["B", "A"])
         self.assertIsNone(self.db.events[0][2])
         self.assertIsNone(self.db.events[0][3])
 
@@ -170,7 +198,10 @@ class PlaybackEventTests(unittest.TestCase):
 
     def test_recent_history_does_not_duplicate_a_saved_live_event(self):
         started_at = datetime.fromtimestamp(
-            main.last_polled_wallclock_ms / 1000, timezone.utc
+            (main.last_polled_wallclock_ms - 60_000) / 1000, timezone.utc
+        )
+        main.recently_played_session_start_ms = (
+            main.last_polled_wallclock_ms - 60_000
         )
         main.current_event = {
             "track_id": "A",
@@ -184,12 +215,15 @@ class PlaybackEventTests(unittest.TestCase):
         self.recent_playback_mock.return_value = {
             "items": [{
                 "track": make_track("A"),
-                "played_at": started_at.isoformat(),
+                "played_at": datetime.fromtimestamp(
+                    (main.last_polled_wallclock_ms - 1_000) / 1000,
+                    timezone.utc
+                ).isoformat(),
             }]
         }
 
         main.finish_event(0, self.db)
-        main.recover_recently_played(object(), self.db, None)
+        main.recover_recently_played(object(), self.db)
 
         self.assertEqual(len(self.db.events), 1)
         self.assertEqual([track["id"] for track in self.db.tracks], ["A"])
