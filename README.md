@@ -38,7 +38,7 @@ Run the file with the following command:
 Install the Python dependencies from the repository root:
 
 ```bash
-python main.py
+python src/main.py
 ```
 
 The program will begin looping and polling periodically.
