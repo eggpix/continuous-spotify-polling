@@ -58,12 +58,12 @@ This database is designed to store a Spotify user's liked songs, recently played
 ### playback_history
 
 | Field          | Type        | Key                 | Description                             |
-| -------------- | ----------- | ------------------- | --------------------------------------- | 
+| -------------- | ----------- | ------------------- | --------------------------------------- |
 | event_id       | BIGINT      | PK                  | Unique ID for each playback event       |
 | track_id       | VARCHAR(22) | FK → tracks.id      |                                         |
-| started_at     | TIMESTAMPTZ |                     | Timestamp when track was started        |
-| playback_start | INTEGER     |                     | Track progress when playback began (ms) |
-| playback_end   | INTEGER     |                     | Track progress when playback ended (ms) |
+| started_at     | TIMESTAMPTZ |                     | Event start time; recovered plays use Spotify's `played_at` |
+| playback_start | INTEGER     |                     | Start progress (ms); `NULL` when unknown |
+| playback_end   | INTEGER     |                     | End progress (ms); `NULL` when unknown |
 
 ## Relationships
 
