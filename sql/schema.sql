@@ -36,7 +36,7 @@ CREATE TABLE IF NOT EXISTS album_artists (
 );
 
 CREATE TABLE IF NOT EXISTS playback_history (
-    playback_event BIGINT PRIMARY KEY,
+    event_id BIGINT GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
     track_id VARCHAR(22) REFERENCES tracks(id),
     started_at TIMESTAMPTZ,
     playback_start INTEGER,

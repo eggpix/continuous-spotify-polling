@@ -12,8 +12,6 @@ polling_intervals = {
 }
 time_margin = 2000
 
-# Persistent state
-playback_events = []
 current_event = None
 
 last_polled_at = time.monotonic()
@@ -21,14 +19,15 @@ last_playing_at = last_polled_at
 last_poll_was_playing = False
 
 
-def finish_event(elapsed_ms):
+def finish_event(elapsed_ms, db):
     global current_event
 
     if current_event is None:
         return
 
-    end = current_event["playback_end"]
-    duration = current_event["duration_ms"]
+    event = current_event
+    end = event["playback_end"]
+    duration = event["duration_ms"]
 
     if last_poll_was_playing:
         if end >= duration - elapsed_ms - time_margin:
@@ -36,15 +35,24 @@ def finish_event(elapsed_ms):
         else:
             end = min(end + elapsed_ms / 2, duration)
 
-    current_event["playback_end"] = max(
-        current_event["playback_start"], int(end)
-    )
+    event["playback_end"] = max(event["playback_start"], int(end))
 
-    print(f"Recorded: {current_event['track_name']}")
+    update_database(db, event)
+
+    print(f"Recorded: {event['track_name']}")
     current_event = None
 
+def update_database(db, event):
+    db.insert_track(event["track"])
+    db.insert_event(
+        event["track_id"],
+        event["started_at"],
+        event["playback_start"],
+        event["playback_end"]
+    )
+    db.commit()
 
-def retrieve_playback_data(sp):
+def retrieve_playback_data(sp, db):
     global current_event, last_polled_at
     global last_playing_at, last_poll_was_playing
 
@@ -62,7 +70,7 @@ def retrieve_playback_data(sp):
 
     # Finish the previous event if the track changed or disappeared.
     if current_event and track_id != current_event["track_id"]:
-        finish_event(elapsed_ms)
+        finish_event(elapsed_ms, db)
 
     if is_playing:
         last_playing_at = observed_at
@@ -73,23 +81,22 @@ def retrieve_playback_data(sp):
 
         # Start a new playback event.
         if current_event is None:
-            if last_poll_was_playing:
-                start = (
-                    0 if progress <= elapsed_ms + time_margin
-                    else max(progress - elapsed_ms / 2, 0)
-                )
-            else:
+            if not last_poll_was_playing:
                 start = progress
+            elif progress <= elapsed_ms + time_margin:
+                start = 0
+            else:
+                start = max(progress - elapsed_ms / 2, 0)
 
             current_event = {
                 "track_id": track_id,
                 "track_name": track["name"],
-                "played_at": current_time,
+                "track": track,
+                "started_at": current_time,
                 "playback_start": int(start),
                 "playback_end": progress,
                 "duration_ms": duration,
             }
-            playback_events.append(current_event)
 
         else:
             current_event["playback_end"] = progress
@@ -118,14 +125,14 @@ def main():
         print("Connecting to Spotify... ")
         sp = spotify.connect()
         print("Connecting to Database... ")
-        db = database.connect()
+        db = database.Database()
     except Exception as e:
         print(f"Error: {e}")
         return
 
     try:
         while True:
-            retrieve_playback_data(sp)
+            retrieve_playback_data(sp, db)
 
             inactive_ms = (time.monotonic() - last_playing_at) * 1000
 
@@ -138,10 +145,11 @@ def main():
             time.sleep(poll_interval)
 
     except KeyboardInterrupt:
-        finish_event(0)
-        print("\nPlayback events:")
-        for event in playback_events:
-            print(event)
+        if current_event is not None:
+            elapsed_ms = (time.monotonic() - last_polled_at) * 1000
+            finish_event(elapsed_ms, db)
+    finally:
+        db.close()
 
 if __name__ == "__main__":
     main()

@@ -169,6 +169,13 @@ class Database:
     def insert_track(self, track):
         return self.insert_tracks([track])
 
+    def insert_event(self, track_id, started_at, playback_start, playback_end):
+        return self._insert_many(
+            "playback_history",
+            ("track_id", "started_at", "playback_start", "playback_end"),
+            [(track_id, started_at, playback_start, playback_end)]
+        )
+
     def commit(self):
         self.conn.commit()
 
