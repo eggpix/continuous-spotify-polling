@@ -24,3 +24,23 @@ retrieved more frequently than if they haven't used
 Spotify for an hour. Missing track information may be
 filled in by comparing playback request info to recently
 played tracks.
+
+## Usage
+
+Install the Python dependencies from the repository root:
+
+```bash
+python -m pip install -r requirements.txt
+```
+
+Run the file with the following command:
+
+Install the Python dependencies from the repository root:
+
+```bash
+python main.py
+```
+
+The program will begin looping and polling periodically.
+
+Follow Instructions from [Spotify Music Analytics](https://github.com/eggpix/spotify-music-analytics/) to install in a remote database.
