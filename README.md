@@ -27,20 +27,44 @@ played tracks.
 
 ## Usage
 
-Install the Python dependencies from the repository root:
+First, install the Python dependencies from the repository root:
 
 ```bash
 python -m pip install -r requirements.txt
 ```
 
-Run the file with the following command:
+After the requirements are installed, create a Spotify developer Web API app with the redirect URI set to `http://127.0.0.1:8888/callback`. Add the app information to your environment variables:
 
-Install the Python dependencies from the repository root:
+```dotenv
+SPOTIPY_CLIENT_ID="your_client_id_here"
+SPOTIPY_CLIENT_SECRET="your_client_secret_here"
+SPOTIPY_REDIRECT_URI="http://127.0.0.1:8888/callback"
+```
+
+Create a database and add the relevant information to the environment variables.
+
+```dotenv
+PGHOST="localhost"
+PGPORT="5432"
+PGDATABASE="spotify_music_analytics"
+PGUSER="postgres"
+PGPASSWORD="your_local_postgres_password"
+```
+
+Or, if using a remote database:
+
+```dotenv
+DATABASE_URL="your_connection_url_here"
+```
+
+finally, run the file with the following command:
 
 ```bash
 python src/main.py
 ```
 
-The program will begin looping and polling periodically.
+The program will begin looping and polling the Spotify API periodically. As described in [Polling Architecture](docs/polling_architecture.md), the polling interval changes dynamically to reduce API usage.
 
-Follow Instructions from [Spotify Music Analytics](https://github.com/eggpix/spotify-music-analytics/) to install in a remote database.
+## Query your data
+
+Connect a PostgreSQL client, such as pgAdmin, to the same database you configured for the importer and run one of the [example queries](docs/example_queries.md).
