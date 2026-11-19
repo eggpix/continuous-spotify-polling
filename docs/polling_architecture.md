@@ -30,6 +30,13 @@ The current-playback timestamp is used as the best available event-boundary
 time. Progress and poll timing estimate offsets for live events; they cannot
 prove exact listening duration when polling misses state changes.
 
+## Code organization
+
+- `src/playback.py` tracks active playback events and state transitions.
+- `src/recent_history.py` reconciles recent-played results with live events.
+- `src/event_storage.py` writes track metadata and playback events.
+- `src/main.py` connects the services and runs the polling loop.
+
 ## Poll intervals
 
 Polling is every 10 seconds while recently active, 30 seconds after one minute
