@@ -14,7 +14,7 @@ POLLING_INTERVALS_MS = {
 
 
 def polling_interval(inactive_ms):
-    for threshold, interval in reversed(list(POLLING_INTERVALS_MS.items())):
+    for threshold, interval in reversed(POLLING_INTERVALS_MS.items()):
         if inactive_ms >= threshold:
             return interval
     raise RuntimeError("No polling interval configured for this state")

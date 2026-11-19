@@ -7,6 +7,7 @@ from event_storage import save_event
 
 TIME_MARGIN_MS = 2_000
 SCRUB_THRESHOLD_MS = 1_000
+FORWARD_SCRUB_THRESHOLD_MS = 10_000
 MISSING_TRACK_GRACE_MS = 120_000
 
 
@@ -34,7 +35,8 @@ def restarted_event_start(progress, timestamp, observed_at_ms):
 
 
 def playback_was_restarted(
-    event, progress, timestamp, observed_at_ms, last_polled_wallclock_ms
+    event, progress, timestamp, observed_at_ms, last_polled_wallclock_ms,
+    elapsed_ms
 ):
     previous_progress = event["last_progress_ms"]
     previous_timestamp = event["last_timestamp"]
@@ -49,6 +51,11 @@ def playback_was_restarted(
     )
     if progress < previous_progress - SCRUB_THRESHOLD_MS:
         return timestamp_changed
+
+    if progress > (
+        previous_progress + elapsed_ms + FORWARD_SCRUB_THRESHOLD_MS
+    ):
+        return True
 
     if (
         timestamp is not None
@@ -87,7 +94,7 @@ class PlaybackTracker:
 
         previous_event = self.current_event
         restarted = self._playback_was_restarted(
-            track_id, progress, timestamp, observed_at_ms
+            track_id, progress, timestamp, observed_at_ms, elapsed_ms
         )
         missing_expired = self._missing_track_expired(observed_at)
         track_changed = self._track_changed(track_id)
@@ -169,7 +176,7 @@ class PlaybackTracker:
         self.finish_event(elapsed_ms, db)
 
     def _playback_was_restarted(
-        self, track_id, progress, timestamp, observed_at_ms
+        self, track_id, progress, timestamp, observed_at_ms, elapsed_ms
     ):
         return (
             self.current_event is not None
@@ -179,7 +186,8 @@ class PlaybackTracker:
                 progress,
                 timestamp,
                 observed_at_ms,
-                self.last_polled_wallclock_ms
+                self.last_polled_wallclock_ms,
+                elapsed_ms
             )
         )
 

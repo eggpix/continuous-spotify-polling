@@ -116,6 +116,35 @@ class PlaybackEventTests(unittest.TestCase):
             delta=1_000
         )
 
+    def test_forward_scrub_splits_same_track_event(self):
+        self.current_playback_mock.side_effect = [
+            playback("A", 5_000),
+            playback("A", 30_000),
+        ]
+
+        self.tracker.poll(object(), self.db)
+        self.tracker.poll(object(), self.db)
+
+        self.assertEqual(len(self.db.events), 1)
+        self.assertEqual(self.db.events[0][0], "A")
+        self.assertEqual(self.db.events[0][2:], (5_000, 5_000))
+        self.assertEqual(self.tracker.current_event["track_id"], "A")
+        self.assertEqual(self.tracker.current_event["playback_start"], 30_000)
+
+    def test_forward_scrub_threshold_includes_poll_elapsed_time(self):
+        event = {"last_progress_ms": 5_000, "last_timestamp": 1_000}
+
+        self.assertFalse(
+            playback_module.playback_was_restarted(
+                event, 16_000, 1_000, 12_000, 1_000, 1_000
+            )
+        )
+        self.assertTrue(
+            playback_module.playback_was_restarted(
+                event, 16_001, 1_000, 12_000, 1_000, 1_000
+            )
+        )
+
     def test_long_missing_track_closes_event(self):
         self.current_playback_mock.side_effect = [
             playback("A", 20_000),
