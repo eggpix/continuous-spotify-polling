@@ -8,12 +8,13 @@ import database
 import spotify
 from playback import PlaybackTracker
 from recent_history import RecentHistory
+from spotipy.exceptions import SpotifyException
 
 
 POLLING_INTERVALS_MS = {
-    0: 10,
-    60_000: 30,
-    900_000: 90,
+    0: 20,
+    60_000: 60,
+    180_000: 180,
 }
 
 
@@ -22,6 +23,15 @@ def polling_interval(inactive_ms):
         if inactive_ms >= threshold:
             return interval
     raise RuntimeError("No polling interval configured for this state")
+
+
+def rate_limit_retry_after(error):
+    retry_after = error.headers.get("Retry-After")
+    try:
+        return max(0, int(retry_after))
+    except (TypeError, ValueError):
+        print("Spotify did not provide a valid Retry-After; waiting 60 seconds")
+        return 60
 
 
 def main():
@@ -41,7 +51,20 @@ def main():
         # Main loop for API polling
         while True:
             # Poll the Spotify API
-            tracker.poll(sp, db)
+            try:
+                tracker.poll(sp, db)
+            except SpotifyException as error:
+                if error.http_status == 429:
+                    delay = rate_limit_retry_after(error)
+                    print(f"Spotify rate limited; retrying in {delay} seconds")
+                    time.sleep(delay)
+                    continue
+                if error.http_status == 401:
+                    raise RuntimeError(
+                        "Spotify authorization failed. Check the persisted "
+                        "token cache and reauthorize locally if needed."
+                    ) from error
+                raise
 
             # Wait until next API call
             inactive_ms = (

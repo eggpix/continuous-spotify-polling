@@ -9,6 +9,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import main
 import playback as playback_module
 import recent_history as recent_history_module
+from spotipy.exceptions import SpotifyException
 
 
 class FakeDatabase:
@@ -350,6 +351,28 @@ class PlaybackEventTests(unittest.TestCase):
 
         self.assertEqual(len(self.db.events), 1)
         self.assertEqual([track["id"] for track in self.db.tracks], ["A"])
+
+
+class PollingRateLimitTests(unittest.TestCase):
+    def test_rate_limit_retry_after_uses_spotify_header(self):
+        error = SpotifyException(
+            429,
+            -1,
+            "rate limited",
+            headers={"Retry-After": "10442"}
+        )
+
+        self.assertEqual(main.rate_limit_retry_after(error), 10_442)
+
+    def test_rate_limit_retry_after_falls_back_when_header_is_invalid(self):
+        error = SpotifyException(
+            429,
+            -1,
+            "rate limited",
+            headers={"Retry-After": "invalid"}
+        )
+
+        self.assertEqual(main.rate_limit_retry_after(error), 60)
 
 
 if __name__ == "__main__":
