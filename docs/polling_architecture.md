@@ -25,8 +25,10 @@ and a `played_at` timestamp, but not the playback offsets.
   excluded. The timestamp cursor advances only through returned history, with
   an overlap to deduplicate results; an empty response does not move it forward.
 - Recovered tracks are stored with their full Spotify metadata and `played_at`.
-  Their playback offsets are `NULL`, because the recently-played endpoint does
-  not reveal how much of those tracks was heard.
+  Based on the observed recently-played behavior, they are recorded as full
+  plays with offsets from zero to the track duration. Their `started_at` uses
+  `played_at`, which may represent the history timestamp rather than the exact
+  track start.
 
 The current-playback timestamp is used as the best available event-boundary
 time. Progress and poll timing estimate offsets for live events; they cannot

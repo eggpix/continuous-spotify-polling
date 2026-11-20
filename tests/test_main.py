@@ -208,8 +208,8 @@ class PlaybackEventTests(unittest.TestCase):
             [track["id"] for track in self.db.tracks], ["B", "A"]
         )
         self.assertEqual([event[0] for event in self.db.events], ["B", "A"])
-        self.assertIsNone(self.db.events[0][2])
-        self.assertIsNone(self.db.events[0][3])
+        self.assertEqual(self.db.events[0][2:], (0, 180_000))
+        self.assertEqual(self.db.events[1][2:], (0, 180_000))
 
     def test_recently_played_recovers_track_when_no_item_is_current(self):
         cursor = self.tracker.last_polled_wallclock_ms

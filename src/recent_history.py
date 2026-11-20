@@ -144,8 +144,8 @@ class RecentHistory:
                 "track_name": track["name"],
                 "track": track,
                 "started_at": played_at,
-                "playback_start": None,
-                "playback_end": None,
+                "playback_start": 0,
+                "playback_end": track["duration_ms"],
                 "duration_ms": track["duration_ms"],
             }
             save_event(db, event)
