@@ -11,6 +11,7 @@ import spotify
 from playback import PlaybackTracker
 from recent_history import RecentHistory
 from spotipy.exceptions import SpotifyException, SpotifyOauthError
+import requests
 
 
 POLLING_INTERVALS_MS = {
@@ -99,6 +100,14 @@ def main():
                 raise RuntimeError(
                     authorization_error_message()
                 ) from error
+            except (requests.exceptions.Timeout,
+                    requests.exceptions.ConnectionError) as error:
+                print(
+                    "Network timeout contacting Spotify; "
+                    "retrying in 60 seconds"
+                )
+                time.sleep(60)
+                continue
 
             # Wait until next API call
             inactive_ms = (
