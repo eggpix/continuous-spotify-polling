@@ -53,6 +53,15 @@ def authorization_error_message():
     )
 
 
+def announce_polling_interval_change(previous_interval, interval):
+    if interval != previous_interval:
+        print(
+            "Polling rate changed. "
+            f"Now polling once every {interval} seconds."
+        )
+    return interval
+
+
 def main():
     tracker = PlaybackTracker(RecentHistory())
 
@@ -68,6 +77,7 @@ def main():
 
     signal.signal(signal.SIGTERM, handle_sigterm)
 
+    last_interval = POLLING_INTERVALS_MS[0]
     try:
         # Main loop for API polling
         while True:
@@ -95,6 +105,9 @@ def main():
                 time.monotonic() - tracker.last_playing_at
             ) * 1000 # Time since last playing a track
             interval = polling_interval(inactive_ms)
+            last_interval = announce_polling_interval_change(
+                last_interval, interval
+            )
             time.sleep(interval)
 
     except KeyboardInterrupt:

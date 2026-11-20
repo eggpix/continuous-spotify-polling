@@ -1,3 +1,5 @@
+from contextlib import redirect_stdout
+from io import StringIO
 import signal
 import sys
 import time
@@ -424,6 +426,21 @@ class PollingRateLimitTests(unittest.TestCase):
     def test_sigterm_uses_graceful_shutdown_path(self):
         with self.assertRaises(KeyboardInterrupt):
             main.handle_sigterm(signal.SIGTERM, None)
+
+    def test_polling_interval_change_is_announced_only_on_transition(self):
+        output = StringIO()
+
+        with redirect_stdout(output):
+            last_interval = main.announce_polling_interval_change(20, 60)
+            last_interval = main.announce_polling_interval_change(
+                last_interval, 60
+            )
+
+        self.assertEqual(last_interval, 60)
+        self.assertEqual(
+            output.getvalue(),
+            "Polling rate changed. Now polling once every 60 seconds.\n"
+        )
 
 
 if __name__ == "__main__":
