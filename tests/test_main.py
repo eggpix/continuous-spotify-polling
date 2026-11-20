@@ -1,3 +1,4 @@
+import signal
 import sys
 import time
 import unittest
@@ -319,6 +320,52 @@ class PlaybackEventTests(unittest.TestCase):
         self.assertEqual([track["id"] for track in self.db.tracks], ["B"])
         self.assertEqual([event[0] for event in self.db.events], ["B"])
 
+    def test_retries_failed_history_recovery_on_next_poll(self):
+        started_at = datetime.now(timezone.utc)
+        self.tracker.current_event = {
+            "track_id": "A",
+            "track_name": "A",
+            "track": make_track("A"),
+            "started_at": started_at,
+            "playback_start": 0,
+            "playback_end": 10_000,
+            "duration_ms": 180_000,
+            "last_progress_ms": 10_000,
+            "last_timestamp": None,
+            "missing_since": None,
+        }
+        recovered_at = datetime.fromtimestamp(
+            (self.history.session_start_ms + 1_000) / 1000,
+            timezone.utc
+        )
+        self.current_playback_mock.side_effect = [
+            playback("B", 1_000),
+            playback("B", 2_000),
+        ]
+        self.recent_playback_mock.side_effect = [
+            SpotifyException(
+                429,
+                -1,
+                "rate limited",
+                headers={"Retry-After": "1"}
+            ),
+            {"items": [{
+                "track": make_track("C"),
+                "played_at": recovered_at.isoformat(),
+            }]},
+        ]
+
+        with self.assertRaises(SpotifyException):
+            self.tracker.poll(object(), self.db)
+
+        self.assertTrue(self.tracker.history_recovery_pending)
+
+        self.tracker.poll(object(), self.db)
+
+        self.assertFalse(self.tracker.history_recovery_pending)
+        self.assertEqual([track["id"] for track in self.db.tracks], ["A", "C"])
+        self.assertEqual([event[0] for event in self.db.events], ["A", "C"])
+
     def test_recent_history_does_not_duplicate_a_saved_live_event(self):
         started_at = datetime.fromtimestamp(
             (self.tracker.last_polled_wallclock_ms - 60_000) / 1000,
@@ -373,6 +420,10 @@ class PollingRateLimitTests(unittest.TestCase):
         )
 
         self.assertEqual(main.rate_limit_retry_after(error), 60)
+
+    def test_sigterm_uses_graceful_shutdown_path(self):
+        with self.assertRaises(KeyboardInterrupt):
+            main.handle_sigterm(signal.SIGTERM, None)
 
 
 if __name__ == "__main__":

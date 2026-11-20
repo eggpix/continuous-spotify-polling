@@ -113,6 +113,9 @@ class PlaybackTracker:
                 timestamp_to_datetime(timestamp, current_time)
             )
 
+        if recovery_pending or history_recovery_pending or track_id is None:
+            self.history_recovery_pending = True
+
         if is_playing:
             self.last_playing_at = observed_at
 
@@ -143,7 +146,7 @@ class PlaybackTracker:
         )
         if track_id is None:
             self.history_recovery_pending = True
-        elif history_recovery_pending:
+        elif self.history_recovery_pending:
             self.history_recovery_pending = False
         self._remember_poll(observed_at, observed_at_ms, is_playing)
 

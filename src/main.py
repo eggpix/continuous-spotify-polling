@@ -2,13 +2,15 @@
 Aplication main entry point
 """
 
+import os
+import signal
 import time
 
 import database
 import spotify
 from playback import PlaybackTracker
 from recent_history import RecentHistory
-from spotipy.exceptions import SpotifyException
+from spotipy.exceptions import SpotifyException, SpotifyOauthError
 
 
 POLLING_INTERVALS_MS = {
@@ -34,6 +36,23 @@ def rate_limit_retry_after(error):
         return 60
 
 
+def handle_sigterm(signum, frame):
+    del frame
+    raise KeyboardInterrupt(f"Received signal {signum}")
+
+
+def authorization_error_message():
+    cache_path = os.getenv(
+        "SPOTIPY_CACHE_PATH",
+        spotify.DEFAULT_CACHE_PATH
+    )
+    return (
+        "Spotify authorization failed. Reauthorize locally, update "
+        f"SPOTIPY_CACHE if used, and replace the persisted cache file "
+        f"at {cache_path}."
+    )
+
+
 def main():
     tracker = PlaybackTracker(RecentHistory())
 
@@ -46,6 +65,8 @@ def main():
     except Exception as error:
         print(f"Error: {error}")
         return
+
+    signal.signal(signal.SIGTERM, handle_sigterm)
 
     try:
         # Main loop for API polling
@@ -61,10 +82,13 @@ def main():
                     continue
                 if error.http_status == 401:
                     raise RuntimeError(
-                        "Spotify authorization failed. Check the persisted "
-                        "token cache and reauthorize locally if needed."
+                        authorization_error_message()
                     ) from error
                 raise
+            except SpotifyOauthError as error:
+                raise RuntimeError(
+                    authorization_error_message()
+                ) from error
 
             # Wait until next API call
             inactive_ms = (

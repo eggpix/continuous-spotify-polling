@@ -28,7 +28,9 @@ start. The app copies it into a writable cache file and persists token refreshes
 there. Set `SPOTIPY_CACHE_PATH` to a path on persistent storage (such as a
 mounted volume) so refreshed credentials survive restarts. Keep both the
 environment variable and cache file secret; the default cache path is
-`.spotify-cache`.
+`.spotify-cache`. If authorization is revoked, reauthorize locally, update
+`SPOTIPY_CACHE`, and replace or remove the persisted cache file before
+restarting; an existing cache file takes precedence over the environment value.
 
 Create a database and add the relevant information to the environment variables.
 
