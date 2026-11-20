@@ -127,14 +127,16 @@ class RecentHistory:
             key = (track_id, played_at_ms)
 
             if played_at_ms < self.session_start_ms or key in self.seen:
+                self.advance_cursor(played_at_ms)
                 continue
-
-            self.seen[key] = played_at_ms
-            self.cursor_ms = max(self.cursor_ms, played_at_ms)
 
             if key in skipped:
+                self.seen[key] = played_at_ms
+                self.advance_cursor(played_at_ms)
                 continue
             if track.get("type") != "track" or not track_id:
+                self.seen[key] = played_at_ms
+                self.advance_cursor(played_at_ms)
                 continue
 
             event = {
@@ -147,6 +149,8 @@ class RecentHistory:
                 "duration_ms": track["duration_ms"],
             }
             save_event(db, event)
+            self.seen[key] = played_at_ms
+            self.advance_cursor(played_at_ms)
             print(f"Recovered from history: {event['track_name']}")
 
     def _prune_old_occurrences(self):

@@ -16,12 +16,14 @@ and a `played_at` timestamp, but not the playback offsets.
   closes it immediately. A graceful poller exit also closes the open event.
 - A backward progress jump greater than one second, accompanied by a changed
   playback timestamp, is treated as a restart or backward seek and starts a
-  new event for the same track. Forward seeks stay in the current event.
-- Track changes, backward seeks, and polls with no current track trigger a
+  new event for the same track. A forward jump beyond expected progress plus
+  ten seconds also starts a new event.
+- Track changes, seeks, and polls with no current track trigger a
   recently-played lookup to recover tracks that may have started and finished
-  between polls. Occurrences matching the live event and the event being
-  closed are excluded; a timestamp cursor plus overlap deduplicates repeated
-  API results.
+  between polls. Recovery is retried when a track returns after a no-track
+  period. Occurrences matching the live event and the event being closed are
+  excluded. The timestamp cursor advances only through returned history, with
+  an overlap to deduplicate results; an empty response does not move it forward.
 - Recovered tracks are stored with their full Spotify metadata and `played_at`.
   Their playback offsets are `NULL`, because the recently-played endpoint does
   not reveal how much of those tracks was heard.

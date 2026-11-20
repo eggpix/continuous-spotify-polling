@@ -1,3 +1,7 @@
+"""
+Aplication main entry point
+"""
+
 import time
 
 import database
@@ -23,6 +27,7 @@ def polling_interval(inactive_ms):
 def main():
     tracker = PlaybackTracker(RecentHistory())
 
+    # Initialize Spotify API and database connection
     try:
         print("Connecting to Spotify... ")
         sp = spotify.connect()
@@ -33,14 +38,16 @@ def main():
         return
 
     try:
+        # Main loop for API polling
         while True:
+            # Poll the Spotify API
             tracker.poll(sp, db)
 
+            # Wait until next API call
             inactive_ms = (
                 time.monotonic() - tracker.last_playing_at
-            ) * 1000
+            ) * 1000 # Time since last playing a track
             interval = polling_interval(inactive_ms)
-            print(f"\tCurrently polling once every {interval} seconds")
             time.sleep(interval)
 
     except KeyboardInterrupt:

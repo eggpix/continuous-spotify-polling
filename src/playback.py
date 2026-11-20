@@ -5,10 +5,12 @@ import spotify
 from event_storage import save_event
 
 
-TIME_MARGIN_MS = 2_000
-SCRUB_THRESHOLD_MS = 1_000
-FORWARD_SCRUB_THRESHOLD_MS = 10_000
-MISSING_TRACK_GRACE_MS = 120_000
+TIME_MARGIN_MS = 2_000 # Time to account for polling inconsistencies
+SCRUB_THRESHOLD_MS = 1_000 # Maximum allowed backward user scrub before events separate
+FORWARD_SCRUB_THRESHOLD_MS = 10_000 # Maximum allowed forward user scrub before events separate
+MISSING_TRACK_GRACE_MS = 120_000 # If Spotify stops returning a currently playing track,
+                                 # wait for 2 minutes before adding it to the database
+                                 # (If the playback stops, don't immediately log the event)
 
 
 def timestamp_to_datetime(timestamp, fallback):
@@ -35,36 +37,32 @@ def restarted_event_start(progress, timestamp, observed_at_ms):
 
 
 def playback_was_restarted(
-    event, progress, timestamp, observed_at_ms, last_polled_wallclock_ms,
+    event, progress, timestamp,
     elapsed_ms
 ):
+    """
+    Function to check if playback was moved back or forward more than the expected amount
+    """
     previous_progress = event["last_progress_ms"]
     previous_timestamp = event["last_timestamp"]
 
     if progress is None or previous_progress is None:
         return False
 
-    timestamp_changed = (
-        timestamp is None
-        or previous_timestamp is None
-        or timestamp > previous_timestamp
-    )
+    # Return true if playback moved back by more than the scrub threshold
     if progress < previous_progress - SCRUB_THRESHOLD_MS:
+        timestamp_changed = (
+            timestamp is None
+            or previous_timestamp is None
+            or timestamp > previous_timestamp
+        )
         return timestamp_changed
 
+    # Return true if playback moved forward by more than the forward scrub threshold
     if progress > (
         previous_progress + elapsed_ms + FORWARD_SCRUB_THRESHOLD_MS
     ):
         return True
-
-    if (
-        timestamp is not None
-        and previous_timestamp is not None
-        and timestamp > previous_timestamp
-        and timestamp >= last_polled_wallclock_ms - TIME_MARGIN_MS
-    ):
-        elapsed_since_change = observed_at_ms - timestamp
-        return abs(elapsed_since_change - progress) <= TIME_MARGIN_MS
 
     return False
 
@@ -72,30 +70,38 @@ def playback_was_restarted(
 class PlaybackTracker:
     def __init__(self, recent_history):
         self.recent_history = recent_history
-        self.current_event = None
+        self.current_event = None # Information on current playback event
         self.last_polled_at = time.monotonic()
         self.last_polled_wallclock_ms = int(time.time() * 1000)
         self.last_playing_at = self.last_polled_at
         self.last_poll_was_playing = False
+        self.history_recovery_pending = False
 
     def poll(self, sp, db):
+        """
+        Call Spotify API, executes once every polling loop
+        """
         playback = spotify.get_currently_playing(sp)
-        observed_at = time.monotonic()
-        elapsed_ms = (observed_at - self.last_polled_at) * 1000
-        current_time = datetime.now(timezone.utc)
-        observed_at_ms = int(time.time() * 1000)
+        observed_at = time.monotonic() # Time of poll (for measuring elapsed time)
+        elapsed_ms = (observed_at - self.last_polled_at) * 1000 # Time since last poll
+        current_time = datetime.now(timezone.utc) # Current datetime in UTC
+        observed_at_ms = int(time.time() * 1000) # Time of poll (Unix Epock time in ms)
 
         is_playing = bool(playback and playback.get("is_playing"))
-        item = playback.get("item") if playback else None
-        track = item if item and item.get("type") == "track" else None
+        item = playback.get("item") if playback else None # Current playback item
+        track = item if item and item.get("type") == "track" else None # Only counts tracks (exclude podcasts)
         track_id = track.get("id") if track else None
-        progress = playback.get("progress_ms") if playback else None
-        timestamp = playback.get("timestamp") if playback else None
+        progress = playback.get("progress_ms") if playback else None # Current track progress
+        timestamp = playback.get("timestamp") if playback else None # Time since last playback event
 
-        previous_event = self.current_event
-        restarted = self._playback_was_restarted(
-            track_id, progress, timestamp, observed_at_ms, elapsed_ms
+        previous_event = self.current_event # Save event info before current one is modified
+        history_recovery_pending = (
+            self.history_recovery_pending and track_id is not None
         )
+        restarted = self._playback_was_restarted(
+            track_id, progress, timestamp, elapsed_ms
+        ) # Check if playback restarted or changed more than allowed amount
+
         missing_expired = self._missing_track_expired(observed_at)
         track_changed = self._track_changed(track_id)
         recovery_pending = track_changed or restarted or missing_expired
@@ -124,11 +130,6 @@ class PlaybackTracker:
             update_event_from_playback(
                 self.current_event, track, progress, timestamp
             )
-            print(f"Paused: {track['name']}")
-        elif item:
-            print(f"Paused: {item.get('name', 'Unknown track')}")
-        else:
-            print("No track playing")
 
         self._recover_history(
             sp,
@@ -137,8 +138,13 @@ class PlaybackTracker:
             is_playing,
             recovery_pending,
             previous_event,
-            observed_at
+            observed_at,
+            history_recovery_pending
         )
+        if track_id is None:
+            self.history_recovery_pending = True
+        elif history_recovery_pending:
+            self.history_recovery_pending = False
         self._remember_poll(observed_at, observed_at_ms, is_playing)
 
     def finish_event(self, elapsed_ms, db, ended_at=None):
@@ -176,7 +182,7 @@ class PlaybackTracker:
         self.finish_event(elapsed_ms, db)
 
     def _playback_was_restarted(
-        self, track_id, progress, timestamp, observed_at_ms, elapsed_ms
+        self, track_id, progress, timestamp, elapsed_ms
     ):
         return (
             self.current_event is not None
@@ -185,8 +191,6 @@ class PlaybackTracker:
                 self.current_event,
                 progress,
                 timestamp,
-                observed_at_ms,
-                self.last_polled_wallclock_ms,
                 elapsed_ms
             )
         )
@@ -233,8 +237,6 @@ class PlaybackTracker:
                 self.current_event, track, progress, timestamp
             )
 
-        self._print_playing_status(track, progress, timestamp)
-
     def _new_event_start(
         self, progress, timestamp, observed_at_ms, elapsed_ms, restarted
     ):
@@ -259,22 +261,11 @@ class PlaybackTracker:
             return 0
         return max(progress - elapsed_ms / 2, 0)
 
-    @staticmethod
-    def _print_playing_status(track, progress, timestamp):
-        print(
-            f"Playing: {track['name']} "
-            f"({int(progress / 1000) if progress is not None else '?'}"
-            f"/{int(track['duration_ms'] / 1000)} seconds)"
-        )
-        if timestamp is not None:
-            age = time.time() - timestamp / 1000
-            print(f"\tLast playback event: {age:.1f}s ago")
-
     def _recover_history(
         self, sp, db, track_id, is_playing, recovery_pending, previous_event,
-        observed_at
+        observed_at, history_recovery_pending
     ):
-        if recovery_pending:
+        if recovery_pending or history_recovery_pending:
             active_event = (
                 self.current_event if is_playing and track_id else None
             )
@@ -293,4 +284,3 @@ class PlaybackTracker:
         self.last_poll_was_playing = is_playing
         self.last_polled_at = observed_at
         self.last_polled_wallclock_ms = observed_at_ms
-        self.recent_history.advance_cursor(observed_at_ms)

@@ -8,6 +8,7 @@ from unittest.mock import patch
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src"))
 import main
 import playback as playback_module
+import recent_history as recent_history_module
 
 
 class FakeDatabase:
@@ -136,12 +137,12 @@ class PlaybackEventTests(unittest.TestCase):
 
         self.assertFalse(
             playback_module.playback_was_restarted(
-                event, 16_000, 1_000, 12_000, 1_000, 1_000
+                event, 16_000, 1_000, 1_000
             )
         )
         self.assertTrue(
             playback_module.playback_was_restarted(
-                event, 16_001, 1_000, 12_000, 1_000, 1_000
+                event, 16_001, 1_000, 1_000
             )
         )
 
@@ -222,6 +223,98 @@ class PlaybackEventTests(unittest.TestCase):
 
         self.tracker.poll(object(), self.db)
 
+        self.assertEqual([track["id"] for track in self.db.tracks], ["B"])
+        self.assertEqual([event[0] for event in self.db.events], ["B"])
+
+    def test_delayed_recent_history_does_not_skip_unavailable_plays(self):
+        cursor = int(time.time() * 1000) - 5 * 60_000
+        self.history.session_start_ms = cursor
+        self.history.cursor_ms = cursor
+        self.current_playback_mock.return_value = None
+
+        items = []
+        for index in range(30):
+            played_at = datetime.fromtimestamp(
+                (cursor + (index + 1) * 1_000) / 1000,
+                timezone.utc
+            )
+            items.append({
+                "track": make_track(f"offline-{index}"),
+                "played_at": played_at.isoformat(),
+            })
+
+        recent_calls = []
+
+        def recent_history(_sp, after):
+            recent_calls.append(after)
+            if len(recent_calls) == 1:
+                return {"items": []}
+            return {
+                "items": [
+                    item
+                    for item in items
+                    if int(datetime.fromisoformat(
+                        item["played_at"]
+                    ).timestamp() * 1000) > after
+                ]
+            }
+
+        self.recent_playback_mock.side_effect = recent_history
+
+        self.tracker.poll(object(), self.db)
+
+        self.assertEqual(self.history.cursor_ms, cursor)
+
+        self.tracker.poll(object(), self.db)
+
+        self.assertEqual(len(self.db.events), 30)
+        self.assertEqual(len(self.db.tracks), 30)
+        self.assertEqual(
+            recent_calls[1],
+            max(
+                0,
+                cursor - recent_history_module.RECENTLY_PLAYED_OVERLAP_MS
+            )
+        )
+        self.assertEqual(
+            self.history.cursor_ms,
+            cursor + 30_000
+        )
+
+    def test_retries_history_recovery_when_track_returns(self):
+        started_at = datetime.now(timezone.utc)
+        self.tracker.current_event = {
+            "track_id": "A",
+            "track_name": "A",
+            "track": make_track("A"),
+            "started_at": started_at,
+            "playback_start": 0,
+            "playback_end": 10_000,
+            "duration_ms": 180_000,
+            "last_progress_ms": 10_000,
+            "last_timestamp": None,
+            "missing_since": None,
+        }
+        recovered_at = datetime.fromtimestamp(
+            (self.history.session_start_ms + 1_000) / 1000,
+            timezone.utc
+        )
+        self.current_playback_mock.side_effect = [
+            None,
+            playback("A", 11_000),
+        ]
+        self.recent_playback_mock.side_effect = [
+            {"items": []},
+            {"items": [{
+                "track": make_track("B"),
+                "played_at": recovered_at.isoformat(),
+            }]},
+        ]
+
+        self.tracker.poll(object(), self.db)
+        self.tracker.poll(object(), self.db)
+
+        self.assertEqual(self.tracker.current_event["track_id"], "A")
         self.assertEqual([track["id"] for track in self.db.tracks], ["B"])
         self.assertEqual([event[0] for event in self.db.events], ["B"])
 
