@@ -41,7 +41,7 @@ prove exact listening duration when polling misses state changes.
 
 ## Poll intervals
 
-Polling is every 10 seconds while recently active, 30 seconds after one minute
-of inactivity, and 90 seconds after fifteen minutes. The recently-played
+Polling is every 20 seconds while recently active, 60 seconds after one minute
+of inactivity, and 180 seconds after three minutes. The recently-played
 endpoint is queried at event boundaries and while no track is available,
 rather than alongside every active-track poll.

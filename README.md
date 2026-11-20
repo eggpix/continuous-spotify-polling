@@ -4,7 +4,7 @@ A limitation of my [Spotify Music Analytics](https://github.com/eggpix/spotify-m
 
 While Spotify does not send total playback duration for a recently played songs, it does send current information on playback, such as the current playback time in milliseconds. Combining this information with data from the recently played tracks endpoint, it's possible to extract detailed listening behavior analytics with relatively infrequent polling.
 
-To prevent rate limitting from the Spotify Web API, polling intervals dynamically adjust to user activity. When a user is currently listening to a track, data is retrieved more frequently than if they haven't used Spotify for an hour. Missing track information may be filled in by comparing playback request info to recently played tracks.
+To prevent rate limitting from the Spotify Web API, polling intervals dynamically adjust to user activity. When a user is currently listening to a track, data is retrieved more frequently than if they haven't used Spotify for 60 seconds or 180 seconds. Missing track information may be filled in by comparing playback request info to recently played tracks.
 
 ## Usage
 
