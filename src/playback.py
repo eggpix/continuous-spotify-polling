@@ -226,7 +226,7 @@ class PlaybackTracker:
                 "track_name": track["name"],
                 "track": track,
                 "started_at": timestamp_to_datetime(
-                    timestamp, current_time
+                    timestamp, current_time - elapsed_ms / 2
                 ),
                 "playback_start": int(start) if start is not None else None,
                 "playback_end": progress,
