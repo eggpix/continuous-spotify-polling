@@ -46,10 +46,6 @@ class PlaybackTracker:
 
         self.current_event = None
 
-    def close(self):
-        pass
-        # TODO CLOSE EVENT
-
     def poll(self, sp, db):
         """
         Call Spotify API, executes once every polling loop
