@@ -40,7 +40,7 @@ class PlaybackTracker:
 
     def end_event(self, elapsed_time):
         end_progress = self.current_event.progress # Final polled progress
-        self.current_event.end(end_progress - elapsed_time * 500)
+        self.current_event.end(min(self.current_event.duration, end_progress - elapsed_time * 500))
 
         # TODO STORE EVENT IN DATABASE
 
