@@ -30,7 +30,7 @@ One request to the Spotify API occurs once every 20, 60, or 180 seconds as defin
 
 - Inactive for 60 seconds or more — poll every 60 seconds
 
-- Inactive for 180 seconds or more — poll every 180 seconds
+- Inactive for 300 seconds or more — poll every 180 seconds
 
 ## Event Change Estimation
 

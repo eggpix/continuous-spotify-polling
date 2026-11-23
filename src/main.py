@@ -16,7 +16,7 @@ import requests
 POLLING_INTERVALS_MS = {
     0: 20,
     60_000: 60,
-    180_000: 180,
+    300_000: 180,
 }
 
 def polling_interval(inactive_ms):
