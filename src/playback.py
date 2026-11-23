@@ -39,6 +39,9 @@ class PlaybackTracker:
         )
 
     def end_event(self, elapsed_time):
+        if current_event is None:
+            return
+        
         end_progress = self.current_event.progress # Final polled progress
         self.current_event.end(min(self.current_event.duration, end_progress - elapsed_time * 500))
 
