@@ -39,7 +39,7 @@ class PlaybackTracker:
         )
 
     def end_event(self, elapsed_time):
-        estimated_end_progress = min(self.current_event.duration, self.current_event.progress + elapsed_time * 500)
+        estimated_end_progress = min(self.current_event.duration, self.current_event.progress + elapsed_time * 1000)
         self.current_event.playback_end = estimated_end_progress
 
         # TODO STORE EVENT IN DATABASE
@@ -75,9 +75,19 @@ class PlaybackTracker:
                 self.end_event(elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
 
-            # TODO CHECK FOR USER SCRUBS
+            # Check for user playback scrubs
+            current_progress = track.get("progress_ms") - elapsed_time * 500
+            previous_progress = self.current_event.progress
+
+            if current_progress < previous_progress - BACKWARD_SCRUB_THRESHOLD_MS:
+                self.end_event(elapsed_time)
+                self.start_event(playback, track, elapsed_time, now_utc)
+
+            if current_progress > previous_progress + elapsed_time + FORWARD_SCRUB_THRESHOLD_MS:
+                self.end_event(elapsed_time)
+                self.start_event(playback, track, elapsed_time, now_utc)
             
-            self.current_event.progress = track.get("progress_ms")
+            self.current_event.progress = track.get("progress_ms") - elapsed_time * 500
         else:
             if self.playing:
                 self.playing = False
