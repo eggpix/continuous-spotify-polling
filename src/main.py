@@ -110,7 +110,9 @@ def main():
             time.sleep(interval)
 
     except KeyboardInterrupt: # Ctrl + C in Visual Studio Code terminal
-        tracker.close(db)
+        # Poll and then end event with elapsed time of 0
+        poll_playback(tracker, sp, db)
+        tracker.end_event(0)
     finally:
         db.close()
 
