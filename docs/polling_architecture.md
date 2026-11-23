@@ -44,7 +44,7 @@ Playback events aren’t recorded in the database until the song is no longer pl
 
 If a new song is noticed by an API request but the song is paused, don’t start a new event yet. Store the old track and update the polling interval if applicable, but wait until the poll notices the song playing and then start the event at the halfway point.
 
-Events can also be ended if the user scrubs more than the allowed amount. If the user scrubs or seeks to a playback progress less than the previously polled progress minus 2,000 milliseconds, or past the previously polled progress, plus the elapsed time, plus 10,000 milliseconds, the event is ended and a new one is started for the same song.
+Events can also be ended if the user scrubs more than the allowed amount. If the user scrubs or seeks to a playback progress less than the previously polled progress minus 2,000 milliseconds, or past the previously polled progress, plus the elapsed time, plus 10,000 milliseconds, the event is ended and a new one is started for the same song. A new event is only created if the song is playing while beyond the acceptable bounds, not if it is paused. Likewise, previously polled progress is only stored as the last estimated playback progress while the song was playing.
 
 ## Recovering Missing Tracks
 

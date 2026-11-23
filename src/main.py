@@ -9,7 +9,6 @@ import time
 import database
 import spotify
 from playback import PlaybackTracker
-from recent_history import RecentHistory
 from spotipy.exceptions import SpotifyException, SpotifyOauthError
 import requests
 
@@ -81,7 +80,7 @@ def poll_playback(tracker, sp, db):
         return
 
 def main():
-    tracker = PlaybackTracker(RecentHistory())
+    tracker = PlaybackTracker()
 
     # Initialize Spotify API and database connection
     try:
@@ -105,7 +104,7 @@ def main():
             poll_playback(tracker, sp, db)
 
             # Wait until next API call
-            inactive_ms = (time.monotonic() - tracker.last_playing_at) * 1000
+            inactive_ms = (time.monotonic() - tracker.last_playing_time) * 1000
             interval = polling_interval(inactive_ms)
             last_interval = announce_polling_interval_change(last_interval, interval)
             time.sleep(interval)
