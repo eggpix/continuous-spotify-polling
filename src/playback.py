@@ -38,7 +38,7 @@ class PlaybackTracker:
             track.get("duration_ms")
         )
 
-    def end_event(self elapsed_time):
+    def end_event(self, elapsed_time):
         end_progress = self.current_event.progress # Final polled progress
         self.current_event.end(end_progress - elapsed_time * 500)
 
@@ -72,7 +72,7 @@ class PlaybackTracker:
             
             if not self.playing:
                 self.playing = True
-                if self.last_playing_time > TRACK_PAUSE_TIMEOUT:
+                if observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
                     self.start_event(playback, track, elapsed_time, now_utc)
             elif not track.get("id") == self.current_event.track_id:
                 self.end_event(elapsed_time)
@@ -92,7 +92,7 @@ class PlaybackTracker:
             if self.playing:
                 self.playing = False
                 self.last_playing_time = halfway_time
-            elif halfway_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
+            elif observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
                 self.end_event(elapsed_time)
 
             # TODO RECOVER RECENT TRACKS
