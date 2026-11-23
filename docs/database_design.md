@@ -57,17 +57,23 @@ This database is designed to store a Spotify user's liked songs, recently played
 
 ### playback_history
 
-| Field          | Type        | Key                 | Description                             |
-| -------------- | ----------- | ------------------- | --------------------------------------- |
-| event_id       | BIGINT      | PK                  | Unique ID for each playback event       |
-| track_id       | VARCHAR(22) | FK → tracks.id      |                                         |
+| Field          | Type        | Key                 | Description                                                 |
+| -------------- | ----------- | ------------------- | ----------------------------------------------------------- |
+| event_id       | BIGINT      | PK                  | Unique ID for each playback event                           |
+| track_id       | VARCHAR(22) | FK → tracks.id      |                                                             |
 | started_at     | TIMESTAMPTZ |                     | Event start time; recovered plays use Spotify's `played_at` |
-| playback_start | INTEGER     |                     | Start progress (ms); `NULL` when unknown |
-| playback_end   | INTEGER     |                     | End progress (ms); `NULL` when unknown |
+| playback_start | INTEGER     |                     | Start progress (ms)                                         |
+| playback_end   | INTEGER     |                     | End progress (ms)                                           |
 
 ## Relationships
 
-The data model uses junction tables to represent many-to-many relationships and to preserve artist roles.
+The data model uses junction tables to represent many-to-many relationships and to preserve artist roles:
+
+- `tracks` to `albums`: many-to-one
+- `tracks` to `artists`: many-to-many via `track_artists`
+- `albums` to `artists`: many-to-many via `album_artists`
+
+### Detailed Description
 
 - A track can be associated with zero or more artists through `track_artists`.
 - An artist can be associated with zero or more tracks through `track_artists`.
@@ -77,9 +83,3 @@ The data model uses junction tables to represent many-to-many relationships and 
 - Each track belongs to exactly one album via `tracks.album_id -> albums.id`.
 - Each `track_artists` row links one track to one artist and records that artist's role for that track.
 - Each `album_artists` row links one album to one artist and records that artist's role for that album.
-
-In summary, the schema is:
-
-- `tracks` to `albums`: many-to-one
-- `tracks` to `artists`: many-to-many via `track_artists`
-- `albums` to `artists`: many-to-many via `album_artists`
