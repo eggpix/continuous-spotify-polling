@@ -38,8 +38,9 @@ class PlaybackTracker:
             track.get("duration_ms")
         )
 
-    def end_event(self, elapsed_time):
-        estimated_end_progress = min(self.current_event.duration, self.current_event.progress + elapsed_time * 1000)
+    def end_event(self, playback, elapsed_time):
+        current_progress = playback.get("progress_ms")
+        estimated_end_progress = min(self.current_event.duration, current_progress - elapsed_time * 500)
         self.current_event.playback_end = estimated_end_progress
 
         # TODO STORE EVENT IN DATABASE
@@ -72,7 +73,7 @@ class PlaybackTracker:
                 if self.last_playing_time > TRACK_PAUSE_TIMEOUT:
                     self.start_event(playback, track, elapsed_time, now_utc)
             elif not track.get("id") == self.current_event.track_id:
-                self.end_event(elapsed_time)
+                self.end_event(playback, elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
 
             # Check for user playback scrubs
@@ -80,11 +81,11 @@ class PlaybackTracker:
             previous_progress = self.current_event.progress
 
             if current_progress < previous_progress - BACKWARD_SCRUB_THRESHOLD_MS:
-                self.end_event(elapsed_time)
+                self.end_event(playback, elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
 
             if current_progress > previous_progress + elapsed_time + FORWARD_SCRUB_THRESHOLD_MS:
-                self.end_event(elapsed_time)
+                self.end_event(playback, elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
             
             self.current_event.progress = track.get("progress_ms") - elapsed_time * 500
@@ -93,7 +94,7 @@ class PlaybackTracker:
                 self.playing = False
                 self.last_playing_time = halfway_time
             elif halfway_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
-                self.end_event(elapsed_time)
+                self.end_event(playback, elapsed_time)
 
             # TODO RECOVER RECENT TRACKS
 
