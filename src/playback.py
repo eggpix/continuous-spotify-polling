@@ -24,7 +24,7 @@ class PlaybackEvent:
 class PlaybackTracker:
     def __init__(self):
         self.last_polled_time = time.monotonic()
-        self.last_playing_time = time.time() # Last time a track was playing
+        self.last_playing_time = time.monotonic() # Last time a track was playing
         self.playing = False # Is a track currently playing
         self.current_event = None # Current playback event
 
