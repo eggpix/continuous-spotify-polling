@@ -79,11 +79,11 @@ class PlaybackTracker:
                 self.start_event(playback, track, elapsed_time, now_utc)
 
             # Check for user playback scrubs
-            if current_progress < previous_progress - BACKWARD_SCRUB_THRESHOLD_MS:
+            if current_progress < previous_progress - BACKWARD_SCRUB_THRESHOLD_MS / 1000:
                 self.end_event(elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
 
-            if current_progress > previous_progress + elapsed_time + FORWARD_SCRUB_THRESHOLD_MS:
+            if current_progress > previous_progress + elapsed_time + FORWARD_SCRUB_THRESHOLD_MS / 1000:
                 self.end_event(elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
                 
