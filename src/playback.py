@@ -77,7 +77,6 @@ class PlaybackTracker:
         self.current_event = None
 
     def get_recent_tracks(self, sp, db):
-        print("YO I JUST POLLED!")
         recent = spotify.get_recently_played(sp, after=int(self.last_active_wall_clock * 1000))
 
         cutoff = datetime.fromtimestamp(
