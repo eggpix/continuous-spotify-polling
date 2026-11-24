@@ -83,12 +83,15 @@ class PlaybackTracker:
             self.last_active_wall_clock,
             tz=timezone.utc
         )
+        poll_time = datetime.now(tz=timezone.utc)
 
         for item in recent.get("items"):
             played_at = datetime.fromisoformat(
                 item["played_at"].replace("Z", "+00:00")
             )
             if played_at <= cutoff:
+                continue
+            if played_at + timedelta(milliseconds=item.get("track").get("duration_ms")) >= poll_time:
                 continue
 
             self.log_event(
