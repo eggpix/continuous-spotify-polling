@@ -14,6 +14,7 @@ class PlaybackEvent:
         self.playback_start = playback_start
 
         self.progress = progress
+        self.last_progress_polling_gap = None
 
 class PlaybackTracker:
     def __init__(self):
@@ -72,12 +73,6 @@ class PlaybackTracker:
             playback.get("is_playing")
         )
 
-        if (
-            not is_actively_playing
-            and observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT
-        ):
-            self.end_event(elapsed_time)
-
         # If a track is currently playing:
         if (is_actively_playing):
             self.last_playing_time = halfway_time
@@ -87,6 +82,8 @@ class PlaybackTracker:
             if self.current_event is None:
                 self.start_event(playback, track, elapsed_time, now_utc)
                 return
+
+            self.current_event.last_progress_polling_gap = None
             
             current_progress = playback.get("progress_ms")
             previous_progress = self.current_event.progress
@@ -112,6 +109,8 @@ class PlaybackTracker:
                 
             self.current_event.progress = current_progress
         else:
+            if self.current_event is not None and self.current_event.last_progress_polling_gap is None:
+                self.current_event.last_progress_polling_gap = elapsed_time
             if (
                 playback is not None and
                 playback.get("item") is not None and
@@ -119,5 +118,10 @@ class PlaybackTracker:
                 not playback.get("item").get("id") == self.current_event.track.get("id")
             ):
                 self.end_event(elapsed_time)
+            elif (
+                self.current_event is not None and
+                observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT
+            ):
+                self.end_event(self.current_event.last_progress_polling_gap)
 
             # TODO RECOVER RECENT TRACKS
