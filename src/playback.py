@@ -68,11 +68,11 @@ class PlaybackTracker:
         )
 
         print(
-            f"Stored track {self.current_event.track.get('id')}\n")
-            f"\tName: {self.current_event.track.get('name')}\n")
-            f"\tDuration: {self.current_event.track.get('duration_ms')}\n")
-            f"\tStarted At: {self.current_event.started_at}\n")
-            f"\tPlayback Start: {self.current_event.playback_start}\n")
+            f"Stored track {self.current_event.track.get('id')}\n"
+            f"\tName: {self.current_event.track.get('name')}\n"
+            f"\tDuration: {self.current_event.track.get('duration_ms')}\n"
+            f"\tStarted At: {self.current_event.started_at}\n"
+            f"\tPlayback Start: {self.current_event.playback_start}\n"
             f"\tPlayback End: {playback_end}"
         )
 
