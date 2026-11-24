@@ -34,7 +34,21 @@ class PlaybackTracker:
             current_progress
         )
 
-    def end_event(self, elapsed_time=None):
+    def log_event(self, db, track, started_at, playback_start, playback_end):
+        try:
+            db.insert_track(track)
+            db.insert_event(
+                track.get("id"),
+                started_at,
+                playback_start,
+                playback_end
+            )
+            db.commit()
+        except Exception:
+            db.rollback()
+            raise
+
+    def end_event(self, db, elapsed_time=None):
         if elapsed_time is None:
             elapsed_time = time.monotonic() - self.last_polled_time
         if self.current_event is None:
@@ -43,7 +57,13 @@ class PlaybackTracker:
         end_progress = self.current_event.progress # Final polled progress
         playback_end = min(self.current_event.track.get("duration_ms"), end_progress + elapsed_time * 500)
 
-        # TODO STORE EVENT IN DATABASE
+        self.log_event(
+            db,
+            self.current_event.track,
+            self.current_event.started_at,
+            self.current_event.playback_start,
+            playback_end
+        )
 
         print(f"Stored track {self.current_event.track.get('id')}")
         print(f"\tName: {self.current_event.track.get('name')}")
@@ -92,18 +112,18 @@ class PlaybackTracker:
 
             # Check if song just started
             if not track.get("id") == self.current_event.track.get("id"):
-                self.end_event(elapsed_time)
+                self.end_event(db, elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
                 return
 
             # Check for user playback scrubs
             if current_progress < previous_progress - BACKWARD_SCRUB_THRESHOLD_MS:
-                self.end_event(elapsed_time)
+                self.end_event(db, elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
                 return
 
             if current_progress > previous_progress + elapsed_time * 1000 + FORWARD_SCRUB_THRESHOLD_MS:
-                self.end_event(elapsed_time)
+                self.end_event(db, elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
                 return
                 
@@ -117,8 +137,8 @@ class PlaybackTracker:
                     playback.get("item") is not None and
                     not playback.get("item").get("id") == self.current_event.track.get("id")
                 ):
-                    self.end_event(elapsed_time)
+                    self.end_event(db, elapsed_time)
                 elif (observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT):
-                    self.end_event(self.current_event.last_progress_polling_gap)
+                    self.end_event(db, self.current_event.last_progress_polling_gap)
 
             # TODO RECOVER RECENT TRACKS
