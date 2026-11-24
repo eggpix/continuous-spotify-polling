@@ -8,44 +8,46 @@ BACKWARD_SCRUB_THRESHOLD_MS = 2_000
 TRACK_PAUSE_TIMEOUT = 180
 
 class PlaybackEvent:
-    def __init__(self, track_id, started_at, playback_start, duration):
-        self.track_id = track_id
+    def __init__(self, track, started_at, playback_start, progress):
+        self.track = track
         self.started_at = started_at
         self.playback_start = playback_start
-        self.playback_end = 0
 
-        self.duration = duration
-        self.progress = 0
-    
-    def end(self, playback_end):
-        self.playback_end = playback_end
-    
+        self.progress = progress
 
 class PlaybackTracker:
     def __init__(self):
         self.last_polled_time = time.monotonic()
         self.last_playing_time = time.monotonic() # Last time a track was playing
-        self.playing = False # Is a track currently playing
         self.current_event = None # Current playback event
 
     def start_event(self, playback, track, elapsed_time, now_utc):
         current_progress = playback.get("progress_ms")
         estimated_start_progress = max(0, current_progress - elapsed_time * 500)
         self.current_event = PlaybackEvent(
-            track.get("id"),
+            track,
             now_utc - timedelta(seconds=elapsed_time / 2),
             estimated_start_progress,
-            track.get("duration_ms")
+            current_progress
         )
 
-    def end_event(self, elapsed_time):
+    def end_event(self):
+        observed_time = time.monotonic()
+        elapsed_time = observed_time - self.last_polled_time
         if self.current_event is None:
             return
         
         end_progress = self.current_event.progress # Final polled progress
-        self.current_event.end(min(self.current_event.duration, end_progress - elapsed_time * 500))
+        playback_end = min(self.current_event.track.get("duration_ms"), end_progress + elapsed_time * 500)
 
         # TODO STORE EVENT IN DATABASE
+
+        print(f"Stored track {self.current_event.track.get("id")}")
+        print(f"\tName: {self.current_event.track.get("name")}")
+        print(f"\tDuration: {self.current_event.track.get("duration_ms")}")
+        print(f"\tStarted At: {self.current_event.started_at}")
+        print(f"\tPlayback Start: {self.current_event.playback_start}")
+        print(f"\tPlayback End: {playback_end}")
 
         self.current_event = None
 
@@ -55,49 +57,58 @@ class PlaybackTracker:
         """
         observed_time = time.monotonic() # Time of this poll for measuring elapsed time
         elapsed_time = observed_time - self.last_polled_time # Time since last poll
+        self.last_polled_time = observed_time
         halfway_time = observed_time - elapsed_time / 2 # Halfway between this poll and the last poll
         now_utc = datetime.now(timezone.utc)
 
         playback = spotify.get_currently_playing(sp) # Currently playing endpoint
+
+        if observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
+            self.end_event()
+
+        # If a track is currently playing:
         if (
             playback is not None and
             playback.get("item") is not None and
             playback.get("item").get("type") == "track" and
             playback.get("is_playing")
         ):
+            self.last_playing_time = halfway_time
+
             track = playback.get("item")
-            
+
             if self.current_event is None:
                 self.start_event(playback, track, elapsed_time, now_utc)
+                return
             
             current_progress = playback.get("progress_ms")
             previous_progress = self.current_event.progress
-            
-            if not self.playing:
-                self.playing = True
-                if observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
-                    self.start_event(playback, track, elapsed_time, now_utc)
-            elif not track.get("id") == self.current_event.track_id:
-                self.end_event(elapsed_time)
+
+            # Check if song just started
+            if not track.get("id") == self.current_event.track.get("id"):
+                self.end_event()
                 self.start_event(playback, track, elapsed_time, now_utc)
+                return
 
             # Check for user playback scrubs
             if current_progress < previous_progress - BACKWARD_SCRUB_THRESHOLD_MS:
-                self.end_event(elapsed_time)
+                self.end_event()
                 self.start_event(playback, track, elapsed_time, now_utc)
+                return
 
             if current_progress > previous_progress + elapsed_time * 1000 + FORWARD_SCRUB_THRESHOLD_MS:
-                self.end_event(elapsed_time)
+                self.end_event()
                 self.start_event(playback, track, elapsed_time, now_utc)
+                return
                 
             self.current_event.progress = current_progress
         else:
-            if self.playing:
-                self.playing = False
-                self.last_playing_time = halfway_time
-            elif observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
-                self.end_event(elapsed_time)
+            if (
+                playback is not None and
+                playback.get("item") is not None and
+                self.current_event is not None and
+                not playback.get("item").get("id") == self.current_event.track.get("id")
+            ):
+                self.end_event()
 
             # TODO RECOVER RECENT TRACKS
-
-        self.last_polled_time = time.monotonic()

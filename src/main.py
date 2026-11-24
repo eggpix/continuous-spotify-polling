@@ -49,11 +49,7 @@ def authorization_error_message():
 
 def announce_polling_interval_change(previous_interval, interval):
     if interval != previous_interval:
-        print(
-            "Polling rate changed. "
-            f"Now polling once every {interval} seconds."
-        )
-    return interval
+        print(f"Now polling once every {interval} seconds.")
 
 def poll_playback(tracker, sp, db):
     """
@@ -94,6 +90,10 @@ def main():
     except KeyboardInterrupt: # Ctrl + C in Visual Studio Code terminal
         return
 
+    print("Connected!")
+    
+    announce_polling_interval_change(-1, POLLING_INTERVALS_MS[0])
+
     signal.signal(signal.SIGTERM, handle_sigterm)
 
     last_interval = POLLING_INTERVALS_MS[0]
@@ -106,15 +106,20 @@ def main():
             # Wait until next API call
             inactive_ms = (time.monotonic() - tracker.last_playing_time) * 1000
             interval = polling_interval(inactive_ms)
-            last_interval = announce_polling_interval_change(last_interval, interval)
+            announce_polling_interval_change(last_interval, interval)
+            last_interval = interval
             time.sleep(interval)
 
     except KeyboardInterrupt: # Ctrl + C in Visual Studio Code terminal
         # Poll and then end event with elapsed time of 0
+        print("Closing current event...")
         poll_playback(tracker, sp, db)
-        tracker.end_event(0)
+        tracker.end_event()
     finally:
+        print("Closing database connection...")
         db.close()
+    
+    print("Process concluded.")
 
 if __name__ == "__main__":
     main()

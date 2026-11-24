@@ -51,17 +51,3 @@ Events can also be ended if the user scrubs more than the allowed amount. If the
 With a polling period as high as 180 seconds, it’s likely a song may be missed due to infrequent polling. While the nature of the recently played endpoint prevents recovery of skipped songs, songs played to completion can be noticed and added to the database on the next poll. This can also be used to recover songs played from downloads while offline.
 
 First, on every poll, check the last time the user’s Spotify client was active. The last active time value should be based on the last time the “currently playing” endpoint returned an item of any type. As mentioned in *Event Change Estimation*,  The last active time value should be rounded down to the nearest poll time to capture every potential playback start. Add any songs to the database returned during this period up to the current poll time. The starting time should be based on the value returned by Spotify’s API, and the playback start and end times should be 0 and the length of the song respectively.
-
-## Code organization
-
-- `src/playback.py`  
-  Tracks active playback events and state transitions.
-
-- `src/recent_history.py`  
-  Reconciles recent-played results with live events.
-
-- `src/event_storage.py`  
-  Writes track metadata and playback events.
-
-- `src/main.py`  
-  Connects the services and runs the polling loop.
