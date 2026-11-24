@@ -23,6 +23,7 @@ class PlaybackTracker:
         self.current_event = None # Current playback event
 
         self.last_active_wall_clock = time.time() # For use in getting recent tracks
+        self.poll_clock = time.monotonic()
 
     def start_event(self, playback, track, elapsed_time, now_utc):
         current_progress = playback.get("progress_ms")
@@ -142,6 +143,7 @@ class PlaybackTracker:
         # If a track is currently playing:
         if is_actively_playing:
             self.last_playing_time = halfway_time
+            self.poll_time = observed_time
 
             track = playback.get("item")
 
