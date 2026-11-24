@@ -22,6 +22,8 @@ class PlaybackTracker:
         self.last_playing_time = time.monotonic() # Last time a track was playing
         self.current_event = None # Current playback event
 
+        self.last_active_wall_clock = time.time() # For use in getting recent tracks
+
     def start_event(self, playback, track, elapsed_time, now_utc):
         current_progress = playback.get("progress_ms")
         if current_progress is None:
@@ -74,6 +76,35 @@ class PlaybackTracker:
 
         self.current_event = None
 
+    def get_recent_tracks(self, sp, db):
+        print("YO I JUST POLLED!")
+        recent = spotify.get_recently_played(sp, after=int(self.last_active_wall_clock * 1000))
+
+        cutoff = datetime.fromtimestamp(
+            self.last_active_wall_clock,
+            tz=timezone.utc
+        )
+
+        for item in recent.get("items"):
+            played_at = datetime.fromisoformat(
+                item["played_at"].replace("Z", "+00:00")
+            )
+            if played_at <= cutoff:
+                continue
+
+            self.log_event(
+                db,
+                item.get("track"),
+                played_at,
+                0.0,
+                item.get("track").get("duration_ms")
+            )
+
+            print(f"Recovered track {item.get("track").get('id')} from recently played")
+            print(f"\tName: {item.get("track").get('name')}")
+            print(f"\tDuration: {item.get("track").get('duration_ms')}")
+            print(f"\tStarted At: {played_at}")
+
     def poll(self, sp, db):
         """
         Call Spotify API, executes once every polling loop
@@ -86,15 +117,24 @@ class PlaybackTracker:
 
         playback = spotify.get_currently_playing(sp) # Currently playing endpoint
 
-        is_actively_playing = (
+        self.get_recent_tracks(sp, db)
+
+        user_active = (
             playback is not None and
-            playback.get("item") is not None and
+            playback.get("item") is not None
+        )
+
+        is_actively_playing = (
+            user_active and
             playback.get("item").get("type") == "track" and
             playback.get("is_playing")
         )
 
+        if user_active:
+            self.last_active_wall_clock = time.time()
+
         # If a track is currently playing:
-        if (is_actively_playing):
+        if is_actively_playing:
             self.last_playing_time = halfway_time
 
             track = playback.get("item")
@@ -140,5 +180,3 @@ class PlaybackTracker:
                     self.end_event(db, elapsed_time)
                 elif (observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT):
                     self.end_event(db, self.current_event.last_progress_polling_gap)
-
-            # TODO RECOVER RECENT TRACKS

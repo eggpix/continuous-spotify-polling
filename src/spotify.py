@@ -70,5 +70,5 @@ def get_currently_playing(sp):
     return sp.currently_playing()
 
 
-def get_recently_played(sp, after):
+def get_recently_played(sp, after: int):
     return sp.current_user_recently_played(limit=50, after=after)
