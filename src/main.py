@@ -106,7 +106,7 @@ def main():
                 continue
 
             # Wait until next API call
-            inactive_ms = (time.monotonic() - tracker.last_playing_time) * 1000
+            inactive_ms = (time.monotonic() - tracker.poll_clock) * 1000
             interval = polling_interval(inactive_ms)
             announce_polling_interval_change(last_interval, interval)
             last_interval = interval
