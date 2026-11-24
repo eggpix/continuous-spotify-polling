@@ -90,10 +90,8 @@ class PlaybackTracker:
                 item["played_at"].replace("Z", "+00:00")
             )
             if played_at <= cutoff:
-                print("Event recovery rejected due to occuring before cutoff.")
                 continue
             elif played_at + timedelta(milliseconds=item.get("track").get("duration_ms")) >= poll_time:
-                print(f"Event recovery was rejected because event {played_at + timedelta(milliseconds=item.get('track'))} seconds did not occur sufficiently before {poll_time} seconds.")
                 continue
 
             self.log_event(
