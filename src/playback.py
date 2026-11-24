@@ -143,7 +143,7 @@ class PlaybackTracker:
         # If a track is currently playing:
         if is_actively_playing:
             self.last_playing_time = halfway_time
-            self.poll_time = observed_time
+            self.poll_clock = observed_time
 
             track = playback.get("item")
 
