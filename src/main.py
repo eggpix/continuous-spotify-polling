@@ -51,7 +51,7 @@ def announce_polling_interval_change(previous_interval, interval):
     if interval != previous_interval:
         print(f"Now polling once every {interval} seconds.")
 
-def poll_playback(tracker, sp, db):
+def poll_playback(tracker, sp, db) -> int:
     """
     Poll the Spotify API and handle errors
     """
@@ -64,7 +64,7 @@ def poll_playback(tracker, sp, db):
             delay = rate_limit_retry_after(error)
             print(f"Spotify rate limited; retrying in {delay} seconds")
             time.sleep(delay)
-            return
+            return 1 # Skip additional wait
         if error.http_status == 401:
             raise RuntimeError(authorization_error_message()) from error
         raise
@@ -73,7 +73,8 @@ def poll_playback(tracker, sp, db):
     except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as error:
         print("Network timeout contacting Spotify; retrying in 60 seconds")
         time.sleep(60)
-        return
+        return 1 # Skip additional wait
+    return 0
 
 def main():
     tracker = PlaybackTracker()
@@ -101,7 +102,8 @@ def main():
         # Main loop for API polling
         while True:
             # Poll Spotify API
-            poll_playback(tracker, sp, db)
+            if poll_playback(tracker, sp, db) == 1:
+                continue
 
             # Wait until next API call
             inactive_ms = (time.monotonic() - tracker.last_playing_time) * 1000

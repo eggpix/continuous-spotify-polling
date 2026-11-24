@@ -32,6 +32,8 @@ One request to the Spotify API occurs once every 20, 60, or 180 seconds as defin
 
 - Inactive for 300 seconds or more — poll every 180 seconds
 
+In case of a network timeout or connection error, the code will always wait 60 seconds before polling again, regardless of the set polling interval. In the case of a rate limit, the code will wait for the time requested by Spotify, or 60 seconds if no time to retry is returned.
+
 ## Event Change Estimation
 
 When a new song is started, its actual start time and starting progress can only be estimated, since polling happens in discrete intervals. For estimating the playback start wall clock timestamp, the playback start progress, and the playback end progress, each event is assumed to have occurred halfway between the current poll time and the last. This logic also applies for calculating the correct polling interval.
