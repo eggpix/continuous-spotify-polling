@@ -23,6 +23,8 @@ class PlaybackTracker:
 
     def start_event(self, playback, track, elapsed_time, now_utc):
         current_progress = playback.get("progress_ms")
+        if current_progress is None:
+            current_progress = 0
         estimated_start_progress = max(0, current_progress - elapsed_time * 500)
         self.current_event = PlaybackEvent(
             track,
@@ -88,6 +90,8 @@ class PlaybackTracker:
             
             current_progress = playback.get("progress_ms")
             previous_progress = self.current_event.progress
+            if current_progress is None:
+                current_progress = previous_progress
 
             # Check if song just started
             if not track.get("id") == self.current_event.track.get("id"):
