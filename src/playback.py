@@ -109,19 +109,16 @@ class PlaybackTracker:
                 
             self.current_event.progress = current_progress
         else:
-            if self.current_event is not None and self.current_event.last_progress_polling_gap is None:
-                self.current_event.last_progress_polling_gap = elapsed_time
-            if (
-                playback is not None and
-                playback.get("item") is not None and
-                self.current_event is not None and
-                not playback.get("item").get("id") == self.current_event.track.get("id")
-            ):
-                self.end_event(elapsed_time)
-            elif (
-                self.current_event is not None and
-                observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT
-            ):
-                self.end_event(self.current_event.last_progress_polling_gap)
+            if self.current_event is not None:
+                if self.current_event.last_progress_polling_gap is None:
+                    self.current_event.last_progress_polling_gap = elapsed_time
+                if (
+                    playback is not None and
+                    playback.get("item") is not None and
+                    not playback.get("item").get("id") == self.current_event.track.get("id")
+                ):
+                    self.end_event(elapsed_time)
+                elif (observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT):
+                    self.end_event(self.current_event.last_progress_polling_gap)
 
             # TODO RECOVER RECENT TRACKS
