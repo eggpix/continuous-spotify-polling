@@ -114,7 +114,7 @@ def main():
         # Poll and then end event with elapsed time of 0
         print("Closing current event...")
         poll_playback(tracker, sp, db)
-        tracker.end_event()
+        tracker.end_event(0)
     finally:
         print("Closing database connection...")
         db.close()

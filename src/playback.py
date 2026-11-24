@@ -31,9 +31,9 @@ class PlaybackTracker:
             current_progress
         )
 
-    def end_event(self):
-        observed_time = time.monotonic()
-        elapsed_time = observed_time - self.last_polled_time
+    def end_event(self, elapsed_time=None):
+        if elapsed_time is None:
+            elapsed_time = time.monotonic() - self.last_polled_time
         if self.current_event is None:
             return
         
@@ -42,9 +42,9 @@ class PlaybackTracker:
 
         # TODO STORE EVENT IN DATABASE
 
-        print(f"Stored track {self.current_event.track.get("id")}")
-        print(f"\tName: {self.current_event.track.get("name")}")
-        print(f"\tDuration: {self.current_event.track.get("duration_ms")}")
+        print(f"Stored track {self.current_event.track.get('id')}")
+        print(f"\tName: {self.current_event.track.get('name')}")
+        print(f"\tDuration: {self.current_event.track.get('duration_ms')}")
         print(f"\tStarted At: {self.current_event.started_at}")
         print(f"\tPlayback Start: {self.current_event.playback_start}")
         print(f"\tPlayback End: {playback_end}")
@@ -64,7 +64,7 @@ class PlaybackTracker:
         playback = spotify.get_currently_playing(sp) # Currently playing endpoint
 
         if observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
-            self.end_event()
+            self.end_event(elapsed_time)
 
         # If a track is currently playing:
         if (
@@ -86,18 +86,18 @@ class PlaybackTracker:
 
             # Check if song just started
             if not track.get("id") == self.current_event.track.get("id"):
-                self.end_event()
+                self.end_event(elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
                 return
 
             # Check for user playback scrubs
             if current_progress < previous_progress - BACKWARD_SCRUB_THRESHOLD_MS:
-                self.end_event()
+                self.end_event(elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
                 return
 
             if current_progress > previous_progress + elapsed_time * 1000 + FORWARD_SCRUB_THRESHOLD_MS:
-                self.end_event()
+                self.end_event(elapsed_time)
                 self.start_event(playback, track, elapsed_time, now_utc)
                 return
                 
@@ -109,6 +109,6 @@ class PlaybackTracker:
                 self.current_event is not None and
                 not playback.get("item").get("id") == self.current_event.track.get("id")
             ):
-                self.end_event()
+                self.end_event(elapsed_time)
 
             # TODO RECOVER RECENT TRACKS
