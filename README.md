@@ -1,4 +1,4 @@
-# Continuous Spotfy Polling
+# Continuous Spotify Polling
 
 A limitation of my [Spotify Music Analytics](https://github.com/eggpix/spotify-music-analytics/) project is that Spotify only provides limited access to track playback history. Only songs listened to completion are counted, while anything that's skipped is discarded. This project continuously requests data from Spotify's API to extract more precise information on listening habits.
 
