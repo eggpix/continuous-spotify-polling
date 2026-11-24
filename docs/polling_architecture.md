@@ -24,7 +24,7 @@ The table containing playback event history contains the following fields:
 
 ## Polling Interval
 
-One request to the Spotify API occurs once every 20, 60, or 180 seconds as defined by the code. The time interval depends on when a track was last estimated to be actively playing. Other user events like playing podcasts or scrubbing a track are not counted toward this calculation. The polling intervals defined in the code are as follows:
+One request to the Spotify API occurs once every 20, 60, or 180 seconds as defined by the code. The time interval depends on when a track was last measured to be actively playing. Other user events like playing podcasts or scrubbing a track are not counted toward this calculation. The polling intervals defined in the code are as follows:
 
 - Recently active — poll every 20 seconds
 
@@ -36,9 +36,9 @@ In case of a network timeout or connection error, the code will always wait 60 s
 
 ## Event Change Estimation
 
-When a new song is started, its actual start time and starting progress can only be estimated, since polling happens in discrete intervals. For estimating the playback start wall clock timestamp, the playback start progress, and the playback end progress, each event is assumed to have occurred halfway between the current poll time and the last. This logic also applies for calculating the correct polling interval.
+When a new song is started, its actual start time and starting progress can only be estimated, since polling happens in discrete intervals. For estimating the playback start wall clock timestamp, the playback start progress, and the playback end progress, each event is assumed to have occurred halfway between the current poll time and the last.
 
-The exception to this rule is in filling in missing tracks from the recently played tracks endpoint. This endpoint only retrieves tracks played to the end of a song, not ones that are skipped. Since playback could have started any time within a polling gap, the whole period should be checked when comparing to the song started at value.
+An exception to this rule is in filling in missing tracks from the recently played tracks endpoint. This endpoint only retrieves tracks played to the end of a song, not ones that are skipped. Since playback could have started any time within a polling gap, the whole period should be checked when comparing to the song started at value.
 
 ## Recording Playback Events
 
