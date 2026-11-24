@@ -67,12 +67,14 @@ class PlaybackTracker:
             playback_end
         )
 
-        print(f"Stored track {self.current_event.track.get('id')}")
-        print(f"\tName: {self.current_event.track.get('name')}")
-        print(f"\tDuration: {self.current_event.track.get('duration_ms')}")
-        print(f"\tStarted At: {self.current_event.started_at}")
-        print(f"\tPlayback Start: {self.current_event.playback_start}")
-        print(f"\tPlayback End: {playback_end}")
+        print(
+            f"Stored track {self.current_event.track.get('id')}\n")
+            f"\tName: {self.current_event.track.get('name')}\n")
+            f"\tDuration: {self.current_event.track.get('duration_ms')}\n")
+            f"\tStarted At: {self.current_event.started_at}\n")
+            f"\tPlayback Start: {self.current_event.playback_start}\n")
+            f"\tPlayback End: {playback_end}"
+        )
 
         self.current_event = None
 
@@ -102,10 +104,12 @@ class PlaybackTracker:
                 item.get("track").get("duration_ms")
             )
 
-            print(f"Recovered track {item.get("track").get('id')} from recently played")
-            print(f"\tName: {item.get("track").get('name')}")
-            print(f"\tDuration: {item.get("track").get('duration_ms')}")
-            print(f"\tStarted At: {played_at}")
+            print(
+                f"Recovered track {item.get("track").get('id')} from recently played\n"
+                f"\tName: {item.get("track").get('name')}\n"
+                f"\tDuration: {item.get("track").get('duration_ms')}\n"
+                f"\tStarted At: {played_at}"
+            )
 
     def poll(self, sp, db):
         """
