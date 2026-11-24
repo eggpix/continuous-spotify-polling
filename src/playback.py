@@ -63,16 +63,21 @@ class PlaybackTracker:
 
         playback = spotify.get_currently_playing(sp) # Currently playing endpoint
 
-        if observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT:
-            self.end_event(elapsed_time)
-
-        # If a track is currently playing:
-        if (
+        is_actively_playing = (
             playback is not None and
             playback.get("item") is not None and
             playback.get("item").get("type") == "track" and
             playback.get("is_playing")
+        )
+
+        if (
+            not is_actively_playing
+            and observed_time - self.last_playing_time > TRACK_PAUSE_TIMEOUT
         ):
+            self.end_event(elapsed_time)
+
+        # If a track is currently playing:
+        if (is_actively_playing):
             self.last_playing_time = halfway_time
 
             track = playback.get("item")
