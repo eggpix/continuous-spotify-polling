@@ -88,11 +88,6 @@ class PlaybackTracker:
         )
         poll_time = datetime.now(tz=timezone.utc)
         
-        if not recent.get("items"):
-            return
-        
-        self.last_active_wall_clock = time.time() # Avoid getting duplicate entries
-
         for item in recent.get("items"):
             played_at = datetime.fromisoformat(
                 item["played_at"].replace("Z", "+00:00")
@@ -129,8 +124,6 @@ class PlaybackTracker:
 
         playback = spotify.get_currently_playing(sp) # Currently playing endpoint
 
-        self.get_recent_tracks(sp, db)
-
         user_active = (
             playback is not None and
             playback.get("item") is not None
@@ -143,6 +136,7 @@ class PlaybackTracker:
         )
 
         if user_active:
+            self.get_recent_tracks(sp, db)
             self.last_active_wall_clock = time.time()
 
         # If a track is currently playing:
