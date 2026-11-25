@@ -87,6 +87,11 @@ class PlaybackTracker:
             tz=timezone.utc
         )
         poll_time = datetime.now(tz=timezone.utc)
+        
+        if not recent.get("items"):
+            return
+        
+        self.last_active_wall_clock = time.time() # Avoid getting duplicate entries
 
         for item in recent.get("items"):
             played_at = datetime.fromisoformat(
