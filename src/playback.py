@@ -69,12 +69,12 @@ class PlaybackTracker:
         )
 
         print(
-            f"Stored track {self.current_event.track.get('id')}\n"
-            f"\tName: {self.current_event.track.get('name')}\n"
-            f"\tDuration: {self.current_event.track.get('duration_ms')}\n"
-            f"\tStarted At: {self.current_event.started_at}\n"
-            f"\tPlayback Start: {self.current_event.playback_start}\n"
-            f"\tPlayback End: {playback_end}"
+            f"Stored track {self.current_event.track.get('id')} | "
+            f"Name: {self.current_event.track.get('name')} | "
+            f"Duration: {self.current_event.track.get('duration_ms')} | "
+            f"Started At: {self.current_event.started_at} | "
+            f"Playback Start: {self.current_event.playback_start} | "
+            f"Playback End: {playback_end}"
         )
 
         self.current_event = None
@@ -106,10 +106,10 @@ class PlaybackTracker:
             )
 
             print(
-                f"Recovered track {item.get("track").get('id')} from recently played\n"
-                f"\tName: {item.get("track").get('name')}\n"
-                f"\tDuration: {item.get("track").get('duration_ms')}\n"
-                f"\tStarted At: {played_at}"
+                f"Recovered track {item.get("track").get('id')} from recently played | "
+                f"Name: {item.get("track").get('name')} | "
+                f"Duration: {item.get("track").get('duration_ms')} | "
+                f"Started At: {played_at}"
             )
 
     def poll(self, sp, db):
